@@ -1,0 +1,9 @@
+apiVersion: aws-accesskey-operator.lightjack.de/v1alpha1
+kind: IAMProviderConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: aws-accesskey-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: iamproviderconfig-sample
+spec:
+  # TODO(user): Add fields here
