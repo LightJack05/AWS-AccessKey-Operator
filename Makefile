@@ -1,5 +1,5 @@
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+IMG ?= ghcr.io/LightJack05/aws-accesskey-operator:latest
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -12,7 +12,7 @@ endif
 # Be aware that the target commands are only tested with Docker which is
 # scaffolded by default. However, you might want to replace it to use other
 # tools. (i.e. podman)
-CONTAINER_TOOL ?= docker
+CONTAINER_TOOL ?= podman
 
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
@@ -253,3 +253,24 @@ endef
 define gomodver
 $(shell go list -m -f '{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}' $(1) 2>/dev/null)
 endef
+
+
+# --- Kind Local Deployment Targets ---
+
+# Name of the image to build for local testing
+LOCAL_IMG ?= localhost/operator-test:local
+
+## Build the image, load it into kind, and deploy to the cluster
+.PHONY: kind-deploy
+kind-deploy:
+	$(MAKE) docker-build IMG=$(LOCAL_IMG)
+	@echo "Loading image $(LOCAL_IMG) into kind..."
+	bash -c 'TMPFILE=$$(mktemp) podman save "$(LOCAL_IMG)" --format oci-archive -o $TMPFILE; kind load image-archive $TMPFILE; rm $TMPFILE'
+	@echo "Deploying to kind..."
+	$(MAKE) deploy IMG=$(LOCAL_IMG)
+
+## Remove the deployment and the CRDs from the cluster
+.PHONY: kind-undeploy
+kind-undeploy:
+	@echo "Undeploying from kind..."
+	$(MAKE) undeploy
