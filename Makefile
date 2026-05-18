@@ -284,3 +284,9 @@ testenv-up: ## Start the local SeaweedFS test environment and apply admin creden
 .PHONY: testenv-down
 testenv-down: ## Tear down the local SeaweedFS test environment and remove cluster resources
 	CONTAINER_TOOL=$(CONTAINER_TOOL) bash testenv/teardown.sh
+
+reset-testenv:
+	$(MAKE) testenv-down || true
+	kind delete cluster || true
+	kind create cluster
+	$(MAKE) testenv-up
