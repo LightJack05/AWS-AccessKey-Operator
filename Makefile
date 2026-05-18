@@ -274,3 +274,13 @@ kind-deploy:
 kind-undeploy:
 	@echo "Undeploying from kind..."
 	$(MAKE) undeploy
+
+##@ Test Environment
+
+.PHONY: testenv-up
+testenv-up: ## Start the local SeaweedFS test environment and apply admin credentials to the cluster
+	CONTAINER_TOOL=$(CONTAINER_TOOL) bash testenv/setup.sh
+
+.PHONY: testenv-down
+testenv-down: ## Tear down the local SeaweedFS test environment and remove cluster resources
+	CONTAINER_TOOL=$(CONTAINER_TOOL) bash testenv/teardown.sh
