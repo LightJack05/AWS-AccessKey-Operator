@@ -6,11 +6,11 @@
       },
       "locked": {
         "dir": "lib/general",
-        "lastModified": 1779050673,
-        "narHash": "sha256-uKNjoWR2XZ2VRUMrmN49/V7b9m1RUP44D2cynkumlv8=",
+        "lastModified": 1779125697,
+        "narHash": "sha256-pA545DWmC9abkbB0Xj0rY8b51SFAQyFFNJwfGNyaP/8=",
         "ref": "refs/heads/main",
-        "rev": "020b89a12d3407db1e55e32e08d7f28445f63b59",
-        "revCount": 8,
+        "rev": "1f8d27f5bd000dc916973237dd18cf7bc5bb150b",
+        "revCount": 9,
         "type": "git",
         "url": "https://gitea.lightjack.de/LightJack05/nix-library"
       },
@@ -26,11 +26,11 @@
       },
       "locked": {
         "dir": "lib/kind",
-        "lastModified": 1779050673,
-        "narHash": "sha256-uKNjoWR2XZ2VRUMrmN49/V7b9m1RUP44D2cynkumlv8=",
+        "lastModified": 1779125697,
+        "narHash": "sha256-pA545DWmC9abkbB0Xj0rY8b51SFAQyFFNJwfGNyaP/8=",
         "ref": "refs/heads/main",
-        "rev": "020b89a12d3407db1e55e32e08d7f28445f63b59",
-        "revCount": 8,
+        "rev": "1f8d27f5bd000dc916973237dd18cf7bc5bb150b",
+        "revCount": 9,
         "type": "git",
         "url": "https://gitea.lightjack.de/LightJack05/nix-library"
       },
@@ -46,11 +46,11 @@
       },
       "locked": {
         "dir": "shells/kubebuilder",
-        "lastModified": 1779050673,
-        "narHash": "sha256-uKNjoWR2XZ2VRUMrmN49/V7b9m1RUP44D2cynkumlv8=",
+        "lastModified": 1779125697,
+        "narHash": "sha256-pA545DWmC9abkbB0Xj0rY8b51SFAQyFFNJwfGNyaP/8=",
         "ref": "refs/heads/main",
-        "rev": "020b89a12d3407db1e55e32e08d7f28445f63b59",
-        "revCount": 8,
+        "rev": "1f8d27f5bd000dc916973237dd18cf7bc5bb150b",
+        "revCount": 9,
         "type": "git",
         "url": "https://gitea.lightjack.de/LightJack05/nix-library"
       },
@@ -146,11 +146,11 @@
       },
       "locked": {
         "dir": "lib/podman",
-        "lastModified": 1779050673,
-        "narHash": "sha256-uKNjoWR2XZ2VRUMrmN49/V7b9m1RUP44D2cynkumlv8=",
+        "lastModified": 1779125697,
+        "narHash": "sha256-pA545DWmC9abkbB0Xj0rY8b51SFAQyFFNJwfGNyaP/8=",
         "ref": "refs/heads/main",
-        "rev": "020b89a12d3407db1e55e32e08d7f28445f63b59",
-        "revCount": 8,
+        "rev": "1f8d27f5bd000dc916973237dd18cf7bc5bb150b",
+        "revCount": 9,
         "type": "git",
         "url": "https://gitea.lightjack.de/LightJack05/nix-library"
       },
