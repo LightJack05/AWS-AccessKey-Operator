@@ -20,9 +20,48 @@
         "url": "https://gitea.lightjack.de/LightJack05/nix-library"
       }
     },
-    "kindLib": {
+    "go-license-collector": {
       "inputs": {
         "nixpkgs": "nixpkgs_2"
+      },
+      "locked": {
+        "lastModified": 1766588125,
+        "narHash": "sha256-oRyCWUM4ialvjZ/GxgKDs6h5F8ivmGk/ECPexRat/NA=",
+        "owner": "LightJack05",
+        "repo": "go-license-collector",
+        "rev": "e119aecb9697350b03493b434084666ad931b8a1",
+        "type": "github"
+      },
+      "original": {
+        "owner": "LightJack05",
+        "repo": "go-license-collector",
+        "type": "github"
+      }
+    },
+    "goLicenseCollectorLib": {
+      "inputs": {
+        "go-license-collector": "go-license-collector",
+        "nixpkgs": "nixpkgs_3"
+      },
+      "locked": {
+        "dir": "lib/go-license-collector",
+        "lastModified": 1779125697,
+        "narHash": "sha256-pA545DWmC9abkbB0Xj0rY8b51SFAQyFFNJwfGNyaP/8=",
+        "ref": "refs/heads/main",
+        "rev": "1f8d27f5bd000dc916973237dd18cf7bc5bb150b",
+        "revCount": 9,
+        "type": "git",
+        "url": "https://gitea.lightjack.de/LightJack05/nix-library"
+      },
+      "original": {
+        "dir": "lib/go-license-collector",
+        "type": "git",
+        "url": "https://gitea.lightjack.de/LightJack05/nix-library"
+      }
+    },
+    "kindLib": {
+      "inputs": {
+        "nixpkgs": "nixpkgs_4"
       },
       "locked": {
         "dir": "lib/kind",
@@ -42,7 +81,7 @@
     },
     "kubebuilderShell": {
       "inputs": {
-        "nixpkgs": "nixpkgs_3"
+        "nixpkgs": "nixpkgs_5"
       },
       "locked": {
         "dir": "shells/kubebuilder",
@@ -78,16 +117,15 @@
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1778869304,
-        "narHash": "sha256-30sZNZoA1cqF5JNO9fVX+wgiQYjB7HJqqJ4ztCDeBZE=",
+        "lastModified": 1779126507,
+        "narHash": "sha256-8WgGgWwYntOiJV2PTJUqo2gzmih/no5yaaCgCJHZ4uI=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "d233902339c02a9c334e7e593de68855ad26c4cb",
+        "rev": "95c269a92c0a5ce04ca123712355ecd9dfe6547e",
         "type": "github"
       },
       "original": {
         "owner": "NixOS",
-        "ref": "nixpkgs-unstable",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -140,9 +178,41 @@
         "type": "github"
       }
     },
+    "nixpkgs_6": {
+      "locked": {
+        "lastModified": 1778869304,
+        "narHash": "sha256-30sZNZoA1cqF5JNO9fVX+wgiQYjB7HJqqJ4ztCDeBZE=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "d233902339c02a9c334e7e593de68855ad26c4cb",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixpkgs-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_7": {
+      "locked": {
+        "lastModified": 1778869304,
+        "narHash": "sha256-30sZNZoA1cqF5JNO9fVX+wgiQYjB7HJqqJ4ztCDeBZE=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "d233902339c02a9c334e7e593de68855ad26c4cb",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixpkgs-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "podmanLib": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5"
+        "nixpkgs": "nixpkgs_7"
       },
       "locked": {
         "dir": "lib/podman",
@@ -163,9 +233,10 @@
     "root": {
       "inputs": {
         "generalLib": "generalLib",
+        "goLicenseCollectorLib": "goLicenseCollectorLib",
         "kindLib": "kindLib",
         "kubebuilderShell": "kubebuilderShell",
-        "nixpkgs": "nixpkgs_4",
+        "nixpkgs": "nixpkgs_6",
         "podmanLib": "podmanLib"
       }
     }
