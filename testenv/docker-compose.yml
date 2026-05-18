@@ -1,0 +1,23 @@
+services:
+  seaweedfs:
+    image: chrislusf/seaweedfs:latest
+    container_name: seaweedfs-testenv
+    command: server -dir=/data -filer -s3 -s3.config=/config/s3config.json -iam
+    ports:
+      - "9333:9333"
+      - "8333:8333"
+      - "8111:8111"
+      - "8888:8888"
+    volumes:
+      - seaweedfs-data:/data
+      - ./s3config.json:/config/s3config.json:ro
+      - ./security.toml:/etc/seaweedfs/security.toml:ro
+    networks:
+      - kind
+
+volumes:
+  seaweedfs-data:
+
+networks:
+  kind:
+    external: true
