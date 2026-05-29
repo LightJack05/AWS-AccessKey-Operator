@@ -10,14 +10,14 @@ services:
       - "8888:8888"
     volumes:
       - seaweedfs-data:/data
-      - ./s3config.json:/config/s3config.json:ro
-      - ./security.toml:/etc/seaweedfs/security.toml:ro
+      - ./testdata/s3config.json:/config/s3config.json:ro
+      - ./testdata/security.toml:/etc/seaweedfs/security.toml:ro
     networks:
-      - kind
+      - aws-accesskey-operator
 
 volumes:
   seaweedfs-data:
 
 networks:
-  kind:
+  aws-accesskey-operator:
     external: true

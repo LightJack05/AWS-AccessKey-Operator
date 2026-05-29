@@ -12,7 +12,7 @@ endif
 # Be aware that the target commands are only tested with Docker which is
 # scaffolded by default. However, you might want to replace it to use other
 # tools. (i.e. podman)
-CONTAINER_TOOL ?= podman
+CONTAINER_TOOL ?= docker
 
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
@@ -275,18 +275,13 @@ kind-undeploy:
 	@echo "Undeploying from kind..."
 	$(MAKE) undeploy
 
-##@ Test Environment
+# Dev Env
+.PHONY: devenv-up devenv-down reset-devenv
+devenv-up:
+	$(MAKE) -C devenv/ up
 
-.PHONY: testenv-up
-testenv-up: ## Start the local SeaweedFS test environment and apply admin credentials to the cluster
-	CONTAINER_TOOL=$(CONTAINER_TOOL) bash testenv/setup.sh
+devenv-down:
+	$(MAKE) -C devenv/ down
 
-.PHONY: testenv-down
-testenv-down: ## Tear down the local SeaweedFS test environment and remove cluster resources
-	CONTAINER_TOOL=$(CONTAINER_TOOL) bash testenv/teardown.sh
-
-reset-testenv:
-	$(MAKE) testenv-down || true
-	kind delete cluster || true
-	kind create cluster
-	$(MAKE) testenv-up
+reset-devenv:
+	$(MAKE) -C devenv/ recreate

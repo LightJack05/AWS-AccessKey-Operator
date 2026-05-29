@@ -1,0 +1,22 @@
+{
+  "identities": [
+    {
+      "name": "admin",
+      "credentials": [
+        {
+          "accessKey": "BB798560AB90C4E04FCD",
+          "secretKey": "ed6cc84c230782a99d67873340e263c9eaee20f7"
+        }
+      ],
+      "actions": [
+        "Admin",
+        "Read",
+        "Write",
+        "List",
+        "Tagging",
+        "ReadAcp",
+        "WriteAcp"
+      ]
+    }
+  ]
+}

@@ -1,9 +1,13 @@
-#!/usr/bin/env bash
-set -e
+#!/usr/bin/bash
+set -euxo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OPERATOR_NAMESPACE="aws-accesskey-operator-system"
+K8S_NAMESPACE="${K8S_NAMESPACE:-ansible-operator-system}"
+
+kind create cluster --config kind-config.yaml
+
+OPERATOR_NAMESPACE="$K8S_NAMESPACE"
 CONTAINER_TOOL="${CONTAINER_TOOL:-docker}"
+DEV_NETWORK="${DEV_NETWORK:-aws-accesskey-operator}"
 
 # Generate admin credentials and JWT signing key
 ACCESS_KEY_ID=$(openssl rand -hex 10 | tr '[:lower:]' '[:upper:]')
@@ -11,13 +15,13 @@ SECRET_ACCESS_KEY=$(openssl rand -hex 20)
 SIGNING_KEY=$(openssl rand -hex 32)
 
 # Write security.toml with JWT signing key (required by IAM/STS service)
-cat > "$SCRIPT_DIR/security.toml" <<EOF
+cat > "testdata/security.toml" <<EOF
 [jwt.filer_signing]
 key = "$SIGNING_KEY"
 EOF
 
 # Write s3/IAM config with generated credentials
-cat > "$SCRIPT_DIR/s3config.json" <<EOF
+cat > "testdata/s3config.json" <<EOF
 {
   "identities": [
     {
@@ -43,16 +47,16 @@ cat > "$SCRIPT_DIR/s3config.json" <<EOF
 EOF
 
 # Start SeaweedFS
-$CONTAINER_TOOL compose -f "$SCRIPT_DIR/docker-compose.yml" up -d
+$CONTAINER_TOOL compose up -d
 
 # Wait for SeaweedFS master to be ready
 echo "Waiting for SeaweedFS to be ready..."
-until curl -sf http://localhost:9333/cluster/status > /dev/null 2>&1; do
+until curl -sf http://127.0.0.1:9333/cluster/status > /dev/null 2>&1; do
   sleep 2
 done
 
 # Get container IP on the kind network
-SEAWEEDFS_IP=$($CONTAINER_TOOL inspect seaweedfs-testenv --format '{{.NetworkSettings.Networks.kind.IPAddress}}')
+SEAWEEDFS_IP=$($CONTAINER_TOOL inspect seaweedfs-testenv --format "{{(index .NetworkSettings.Networks \"$DEV_NETWORK\").IPAddress}}")
 
 # Create operator namespace if it doesn't exist
 kubectl create namespace "$OPERATOR_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
