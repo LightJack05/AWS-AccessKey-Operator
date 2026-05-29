@@ -20,19 +20,35 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+// IAMAdminCredentialsSecretRef references a Secret in the operator namespace
+// that contains IAM admin credentials used to manage access keys.
+type IAMAdminCredentialsSecretRef struct {
+	// name is the name of the Secret within the operator namespace.
+	// The Secret must contain the keys "accessKeyId" and "secretAccessKey".
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+}
 
 // IAMProviderConfigSpec defines the desired state of IAMProviderConfig
 type IAMProviderConfigSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	// The following markers will use OpenAPI v3 schema to validate the value
-	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
+	// endpoint is the base URL of the IAM API endpoint.
+	// This can point to AWS IAM (e.g. "https://iam.amazonaws.com") or any
+	// compatible implementation such as SeaweedFS
+	// (e.g. "http://seaweedfs-filer:8111").
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^https?://`
+	Endpoint string `json:"endpoint"`
 
-	// foo is an example field of IAMProviderConfig. Edit iamproviderconfig_types.go to remove/update
-	// +optional
-	Foo *string `json:"foo,omitempty"`
+	// region is the AWS region to use when signing requests.
+	// For non-AWS endpoints this value is still required for SigV4 signing,
+	// but can be set to an arbitrary string (e.g. "us-east-1").
+	// +kubebuilder:validation:MinLength=1
+	Region string `json:"region"`
+
+	// adminCredentialsSecretRef references the Secret in the operator namespace
+	// that holds the IAM admin credentials used to issue and revoke access keys.
+	// +required
+	AdminCredentialsSecretRef IAMAdminCredentialsSecretRef `json:"adminCredentialsSecretRef"`
 }
 
 // IAMProviderConfigStatus defines the observed state of IAMProviderConfig.

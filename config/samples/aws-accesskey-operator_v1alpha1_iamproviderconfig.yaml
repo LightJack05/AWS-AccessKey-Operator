@@ -6,4 +6,12 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: iamproviderconfig-sample
 spec:
-  # TODO(user): Add fields here
+  # endpoint is the base URL of the IAM-compatible API.
+  # Use https://iam.amazonaws.com for AWS, or the SeaweedFS filer address for SeaweedFS.
+  endpoint: "https://iam.amazonaws.com"
+  # region used for SigV4 request signing.
+  region: "us-east-1"
+  # adminCredentialsSecretRef points to a Secret in the operator namespace.
+  # The Secret must have keys "accessKeyId" and "secretAccessKey".
+  adminCredentialsSecretRef:
+    name: iamproviderconfig-admin-credentials

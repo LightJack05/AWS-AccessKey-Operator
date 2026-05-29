@@ -39,10 +39,40 @@ spec:
           spec:
             description: spec defines the desired state of IAMProviderConfig
             properties:
-              foo:
-                description: foo is an example field of IAMProviderConfig. Edit iamproviderconfig_types.go
-                  to remove/update
+              adminCredentialsSecretRef:
+                description: |-
+                  adminCredentialsSecretRef references the Secret in the operator namespace
+                  that holds the IAM admin credentials used to issue and revoke access keys.
+                properties:
+                  name:
+                    description: |-
+                      name is the name of the Secret within the operator namespace.
+                      The Secret must contain the keys "accessKeyId" and "secretAccessKey".
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+              endpoint:
+                description: |-
+                  endpoint is the base URL of the IAM API endpoint.
+                  This can point to AWS IAM (e.g. "https://iam.amazonaws.com") or any
+                  compatible implementation such as SeaweedFS
+                  (e.g. "http://seaweedfs-filer:8111").
+                minLength: 1
+                pattern: ^https?://
                 type: string
+              region:
+                description: |-
+                  region is the AWS region to use when signing requests.
+                  For non-AWS endpoints this value is still required for SigV4 signing,
+                  but can be set to an arbitrary string (e.g. "us-east-1").
+                minLength: 1
+                type: string
+            required:
+            - adminCredentialsSecretRef
+            - endpoint
+            - region
             type: object
           status:
             description: status defines the observed state of IAMProviderConfig
