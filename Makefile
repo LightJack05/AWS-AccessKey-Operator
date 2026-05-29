@@ -265,7 +265,7 @@ LOCAL_IMG ?= localhost/operator-test:local
 kind-deploy:
 	$(MAKE) docker-build IMG=$(LOCAL_IMG)
 	@echo "Loading image $(LOCAL_IMG) into kind..."
-	bash -c 'TMPFILE=$$(mktemp) podman save "$(LOCAL_IMG)" --format oci-archive -o $TMPFILE; kind load image-archive $TMPFILE; rm $TMPFILE'
+	bash -c 'TMPFILE=$$(mktemp) podman save "$(LOCAL_IMG)" --format oci-archive -o $TMPFILE; kind load image-archive -n $(KIND_CLUSTER_NAME) $TMPFILE; rm $TMPFILE'
 	@echo "Deploying to kind..."
 	$(MAKE) deploy IMG=$(LOCAL_IMG)
 
@@ -279,9 +279,12 @@ kind-undeploy:
 .PHONY: devenv-up devenv-down reset-devenv
 devenv-up:
 	$(MAKE) -C devenv/ up
+	$(MAKE) kind-deploy
+	$(MAKE) -C devenv/ init
 
 devenv-down:
 	$(MAKE) -C devenv/ down
 
 reset-devenv:
-	$(MAKE) -C devenv/ recreate
+	$(MAKE) devenv-down
+	$(MAKE) devenv-up

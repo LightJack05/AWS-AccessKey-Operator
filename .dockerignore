@@ -7,3 +7,4 @@
 **/*_test.go
 !go.mod
 !go.sum
+devenv/

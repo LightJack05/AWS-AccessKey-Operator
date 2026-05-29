@@ -6,5 +6,5 @@ CONTAINER_TOOL="${CONTAINER_TOOL:-docker}"
 
 $CONTAINER_TOOL compose -f "docker-compose.yml" down -v
 
-kind delete cluster -n aws-accesskey-operator-dev || true
+kind delete cluster -n aws-accesskey-operator || true
 docker compose down || true

@@ -61,12 +61,18 @@ SEAWEEDFS_IP=$($CONTAINER_TOOL inspect seaweedfs-testenv --format "{{(index .Net
 # Create operator namespace if it doesn't exist
 kubectl create namespace "$OPERATOR_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
 
-# Create admin credentials secret
-kubectl create secret generic seaweedfs-admin \
-  --namespace="$OPERATOR_NAMESPACE" \
-  --from-literal=accessKeyID="$ACCESS_KEY_ID" \
-  --from-literal=secretAccessKey="$SECRET_ACCESS_KEY" \
-  --dry-run=client -o yaml | kubectl apply -f -
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: seaweedfs-admin
+  namespace: $OPERATOR_NAMESPACE
+stringData:
+  creds: |
+    [default]
+    accessKeyID = "$ACCESS_KEY_ID"
+    secretAccessKey = "$SECRET_ACCESS_KEY"
+EOF
 
 # Create headless service + endpoints for in-cluster access
 kubectl apply -f - <<EOF

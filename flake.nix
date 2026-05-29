@@ -31,6 +31,7 @@
           echo "=> Running shell hook for docker setup..."
           export K8S_NAMESPACE=aws-accesskey-operator-system
           export DEV_NETWORK=aws-accesskey-operator
+          export KIND_CLUSTER_NAME=aws-accesskey-operator
           export DEV_SUBNET="172.31.0.0/16"
           export KIND_EXPERIMENTAL_DOCKER_NETWORK=$DEV_NETWORK
           # Unset to ensure it doesn't run podman, docker is a requirement here
