@@ -26,4 +26,12 @@ resources:
   kind: IAMProviderConfig
   path: github.com/LightJack05/AWS-AccessKey-Operator/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: lightjack.de
+  group: aws-accesskey-operator
+  kind: IAMProviderGrant
+  path: github.com/LightJack05/AWS-AccessKey-Operator/api/v1alpha1
+  version: v1alpha1
 version: "3"
