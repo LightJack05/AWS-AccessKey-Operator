@@ -49,6 +49,11 @@ type IAMProviderConfigSpec struct {
 	// that holds the IAM admin credentials used to issue and revoke access keys.
 	// +required
 	AdminCredentialsSecretRef IAMAdminCredentialsSecretRef `json:"adminCredentialsSecretRef"`
+
+	// adminCredentialsSecretKey is the key within the referenced Secret where the admin credentials are stored in standard AWS INI format.
+	// +kubebuilder:validation:MinLength=1
+	// +required
+	AdminCredentialsSecretKey string `json:"adminCredentialsSecretKey"`
 }
 
 // IAMProviderConfigStatus defines the observed state of IAMProviderConfig.
