@@ -47,7 +47,8 @@ type IAMAccessKeyReconciler struct {
 // +kubebuilder:rbac:groups=aws-accesskey-operator.lightjack.de,resources=iamaccesskeys/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=aws-accesskey-operator.lightjack.de,resources=iamaccesskeys/finalizers,verbs=update
 // +kubebuilder:rbac:groups=aws-accesskey-operator.lightjack.de,resources=iamproviderconfigs,verbs=get;list;watch
-// +kubebuilder:rbac:groups=aws-accesskey-operator.lightjack.de,resources=secrets,verbs=get;list;watch
+// Allow the operator to read/write secrets required
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
