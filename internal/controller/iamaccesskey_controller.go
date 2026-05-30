@@ -47,6 +47,7 @@ type IAMAccessKeyReconciler struct {
 // +kubebuilder:rbac:groups=aws-accesskey-operator.lightjack.de,resources=iamaccesskeys/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=aws-accesskey-operator.lightjack.de,resources=iamaccesskeys/finalizers,verbs=update
 // +kubebuilder:rbac:groups=aws-accesskey-operator.lightjack.de,resources=iamproviderconfigs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=aws-accesskey-operator.lightjack.de,resources=iamprovidergrants,verbs=get;list;watch
 // Allow the operator to read/write secrets required
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete
 
@@ -73,6 +74,17 @@ func (r *IAMAccessKeyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 		log.Error(err, "Failed to get IAMAccessKey resource")
 		return ctrl.Result{}, err
+	}
+
+	// Verify an IAMProviderGrant in this namespace permits the requested provider and username
+	permitted, err := r.isPermittedByGrant(ctx, accessKey)
+	if err != nil {
+		r.handleGeneralReconcileError(ctx, accessKey, err)
+		return ctrl.Result{}, err
+	}
+	if !permitted {
+		r.handleGrantDenied(ctx, accessKey)
+		return ctrl.Result{}, nil
 	}
 
 	// Fetch the corresponding provider config
@@ -323,6 +335,49 @@ func loadAWSConfigFromString(configString string, providerConfig *awsaccesskeyop
 	}
 
 	return cfg, nil
+}
+
+// isPermittedByGrant checks whether an IAMProviderGrant in the same namespace as
+// accessKey allows the requested providerConfigRef and username.
+func (r *IAMAccessKeyReconciler) isPermittedByGrant(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey) (bool, error) {
+	grantList := &awsaccesskeyoperatorv1alpha1.IAMProviderGrantList{}
+	err := r.Client.List(ctx, grantList, client.InNamespace(accessKey.Namespace))
+	if err != nil {
+		return false, fmt.Errorf("failed to list IAMProviderGrants: %w", err)
+	}
+
+	for _, grant := range grantList.Items {
+		ref := grant.Spec.ProviderConfigRef
+		if ref.Name != accessKey.Spec.ProviderConfigRef.Name || ref.Namespace != accessKey.Spec.ProviderConfigRef.Namespace {
+			continue
+		}
+		for _, u := range grant.Spec.AllowedUsernames {
+			if u == accessKey.Spec.Username {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}
+
+func (r *IAMAccessKeyReconciler) handleGrantDenied(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey) {
+	log := logf.FromContext(ctx)
+	log.Info("no IAMProviderGrant permits this provider/username combination",
+		"namespace", accessKey.Namespace,
+		"providerConfigRef", accessKey.Spec.ProviderConfigRef,
+		"username", accessKey.Spec.Username,
+	)
+
+	meta.SetStatusCondition(&accessKey.Status.Conditions, metav1.Condition{
+		Type:    "GrantDenied",
+		Reason:  "NoMatchingGrant",
+		Status:  metav1.ConditionTrue,
+		Message: fmt.Sprintf("No IAMProviderGrant in namespace %s permits provider %s/%s for username %s", accessKey.Namespace, accessKey.Spec.ProviderConfigRef.Namespace, accessKey.Spec.ProviderConfigRef.Name, accessKey.Spec.Username),
+	})
+	accessKey.Status.Healthy = false
+
+	r.Status().Update(ctx, accessKey)
 }
 
 // Handle undesirable conditions

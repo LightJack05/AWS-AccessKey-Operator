@@ -45,6 +45,7 @@ rules:
   - aws-accesskey-operator.lightjack.de
   resources:
   - iamproviderconfigs
+  - iamprovidergrants
   verbs:
   - get
   - list
