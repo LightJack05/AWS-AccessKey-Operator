@@ -1,0 +1,11 @@
+apiVersion: aws-accesskey-operator.lightjack.de/v1alpha1
+kind: IAMProviderConfig
+metadata:
+  name: seaweedfs
+  namespace: aws-accesskey-operator-system
+spec:
+  endpoint: "http://seaweedfs.aws-accesskey-operator-system.svc:8333"
+  region: us-east-1
+  adminCredentialsSecretRef:
+    name: seaweedfs-admin
+  adminCredentialsSecretKey: creds

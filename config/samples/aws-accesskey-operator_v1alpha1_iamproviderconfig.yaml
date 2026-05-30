@@ -1,0 +1,17 @@
+apiVersion: aws-accesskey-operator.lightjack.de/v1alpha1
+kind: IAMProviderConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: aws-accesskey-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: iamproviderconfig-sample
+spec:
+  # endpoint is the base URL of the IAM-compatible API.
+  # Use https://iam.amazonaws.com for AWS, or the SeaweedFS filer address for SeaweedFS.
+  endpoint: "https://iam.amazonaws.com"
+  # region used for SigV4 request signing.
+  region: "us-east-1"
+  # adminCredentialsSecretRef points to a Secret in the operator namespace.
+  # The Secret must have keys "accessKeyId" and "secretAccessKey".
+  adminCredentialsSecretRef:
+    name: iamproviderconfig-admin-credentials

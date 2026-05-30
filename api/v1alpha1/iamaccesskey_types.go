@@ -20,28 +20,54 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+// IAMProviderConfigRef references an IAMProviderConfig by name and namespace.
+type IAMProviderConfigRef struct {
+	// name is the name of the IAMProviderConfig.
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// namespace is the namespace of the IAMProviderConfig.
+	// +kubebuilder:validation:MinLength=1
+	Namespace string `json:"namespace"`
+}
 
 // IAMAccessKeySpec defines the desired state of IAMAccessKey
 type IAMAccessKeySpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	// The following markers will use OpenAPI v3 schema to validate the value
-	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
+	// providerConfigRef references the IAMProviderConfig that defines the IAM
+	// endpoint and credentials to use when managing this access key.
+	// +required
+	ProviderConfigRef IAMProviderConfigRef `json:"providerConfigRef"`
 
-	// foo is an example field of IAMAccessKey. Edit iamaccesskey_types.go to remove/update
-	// +optional
-	Foo *string `json:"foo,omitempty"`
+	// username is the IAM username this access key belongs to.
+	// +kubebuilder:validation:MinLength=1
+	// +required
+	Username string `json:"username"`
+
+	// secretName is the name of the Kubernetes Secret where the access key ID and secret access key will be stored after creation.
+	// The Secret will be created in the same namespace as the IAMAccessKey resource.
+	// +kubebuilder:validation:MinLength=1
+	// +required
+	SecretName string `json:"secretName"`
+
+	// secretKey is the key within the Kubernetes Secret where the access key ID and secret access key will be stored in standard AWS INI format
+	// +kubebuilder:validation:MinLength=1
+	// +required
+	SecretKey string `json:"secretField"`
 }
 
 // IAMAccessKeyStatus defines the observed state of IAMAccessKey.
 type IAMAccessKeyStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// healthy indicates whether the access key has been successfully created
+	// and is currently valid. Defaults to false and is set to true by the
+	// operator after successful reconciliation.
+	// +kubebuilder:default=false
+	// +optional
+	Healthy bool `json:"healthy,omitempty"`
 
-	// For Kubernetes API conventions, see:
-	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
+	// message provides a human-readable explanation of the current status,
+	// such as the reason the access key is unhealthy or any relevant error.
+	// +optional
+	Message string `json:"message,omitempty"`
 
 	// conditions represent the current state of the IAMAccessKey resource.
 	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
