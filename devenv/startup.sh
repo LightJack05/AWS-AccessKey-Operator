@@ -28,6 +28,8 @@ until curl -sf http://127.0.0.1:9333/cluster/status > /dev/null 2>&1; do
   sleep 2
 done
 
+sleep 5
+
 # Bootstrap the admin credentials directly via weed shell inside the container
 $CONTAINER_TOOL exec seaweedfs-testenv sh -c \
   "echo 's3.configure -apply -user admin -access_key $ACCESS_KEY_ID -secret_key $SECRET_ACCESS_KEY -actions Admin' | weed shell"
