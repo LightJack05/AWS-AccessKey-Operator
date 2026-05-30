@@ -377,7 +377,9 @@ func (r *IAMAccessKeyReconciler) handleGrantDenied(ctx context.Context, accessKe
 	})
 	accessKey.Status.Healthy = false
 
-	r.Status().Update(ctx, accessKey)
+	if err := r.Status().Update(ctx, accessKey); err != nil {
+		log.Error(err, "failed to update IAMAccessKey status after grant denial")
+	}
 }
 
 // Handle undesirable conditions
