@@ -263,9 +263,13 @@ func (r *IAMAccessKeyReconciler) accessKeySecretExistsAndHasValidKey(ctx context
 	}
 
 	iamClient := iam.NewFromConfig(awsConfig)
-	_, err = iamClient.GetUser(ctx, &iam.GetUserInput{})
+	_, err = iamClient.GetUser(ctx, &iam.GetUserInput{UserName: &accessKey.Spec.Username})
 	if err != nil {
 		log.Info(fmt.Sprintf("secret %s/%s exists and loads but failed validation, will be reissued: %v", accessKey.Namespace, accessKey.Spec.SecretName, err))
+		err = r.deleteSecret(ctx, secret)
+		if err != nil {
+			return false, fmt.Errorf("failed to delete invalid secret: %w", err)
+		}
 		return false, nil
 	}
 
@@ -306,6 +310,7 @@ func loadAWSConfigFromString(configString string, providerConfig *awsaccesskeyop
 	cfg, err := config.LoadDefaultConfig(
 		context.TODO(),
 		config.WithRegion(providerConfig.Spec.Region),
+		config.WithBaseEndpoint(providerConfig.Spec.Endpoint),
 		config.WithCredentialsProvider(
 			aws.NewCredentialsCache(
 				credentials.NewStaticCredentialsProvider(accessKeyID, secretAccessKey, ""),
