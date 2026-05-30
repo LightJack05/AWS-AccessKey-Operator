@@ -30,9 +30,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	awsaccesskeyoperatorv1alpha1 "github.com/LightJack05/AWS-AccessKey-Operator/api/v1alpha1"
 )
@@ -83,6 +88,22 @@ func (r *IAMAccessKeyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 	if !permitted {
+		accessKeySecret := &corev1.Secret{}
+		err := r.Client.Get(ctx, client.ObjectKey{
+			Namespace: accessKey.Namespace,
+			Name:      accessKey.Spec.SecretName,
+		}, accessKeySecret)
+		if err == nil {
+			err = r.deleteSecret(ctx, accessKeySecret)
+			if err != nil {
+				r.handleGeneralReconcileError(ctx, accessKey, err)
+				return ctrl.Result{}, err
+			}
+		}
+		if err != nil && !errors.IsNotFound(err) {
+			r.handleGeneralReconcileError(ctx, accessKey, err)
+			return ctrl.Result{}, err
+		}
 		r.handleGrantDenied(ctx, accessKey)
 		return ctrl.Result{}, nil
 	}
@@ -423,6 +444,121 @@ func (r *IAMAccessKeyReconciler) handleGeneralReconcileError(ctx context.Context
 func (r *IAMAccessKeyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&awsaccesskeyoperatorv1alpha1.IAMAccessKey{}).
+		Watches(
+			&awsaccesskeyoperatorv1alpha1.IAMProviderConfig{},
+			handler.EnqueueRequestsFromMapFunc(r.iamAccessKeysForProviderConfig),
+		).
+		Watches(
+			&awsaccesskeyoperatorv1alpha1.IAMProviderGrant{},
+			handler.EnqueueRequestsFromMapFunc(r.iamAccessKeysForProviderGrant),
+		).
+		Watches(
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.iamAccessKeysForSecret),
+			builder.WithPredicates(predicate.NewPredicateFuncs(r.isRelevantSecret)),
+		).
 		Named("iamaccesskey").
 		Complete(r)
+}
+
+// iamAccessKeysForProviderConfig maps an IAMProviderConfig to all IAMAccessKey
+// objects that reference it, so they are re-reconciled when the config changes.
+func (r *IAMAccessKeyReconciler) iamAccessKeysForProviderConfig(ctx context.Context, obj client.Object) []reconcile.Request {
+	accessKeyList := &awsaccesskeyoperatorv1alpha1.IAMAccessKeyList{}
+	if err := r.Client.List(ctx, accessKeyList); err != nil {
+		return nil
+	}
+
+	var requests []reconcile.Request
+	for _, ak := range accessKeyList.Items {
+		ref := ak.Spec.ProviderConfigRef
+		if ref.Name == obj.GetName() && ref.Namespace == obj.GetNamespace() {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{Name: ak.Name, Namespace: ak.Namespace},
+			})
+		}
+	}
+	return requests
+}
+
+// iamAccessKeysForProviderGrant maps an IAMProviderGrant to all IAMAccessKey
+// objects in the same namespace, since any grant change may affect their eligibility.
+func (r *IAMAccessKeyReconciler) iamAccessKeysForProviderGrant(ctx context.Context, obj client.Object) []reconcile.Request {
+	accessKeyList := &awsaccesskeyoperatorv1alpha1.IAMAccessKeyList{}
+	if err := r.Client.List(ctx, accessKeyList, client.InNamespace(obj.GetNamespace())); err != nil {
+		return nil
+	}
+
+	var requests []reconcile.Request
+	for _, ak := range accessKeyList.Items {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{Name: ak.Name, Namespace: ak.Namespace},
+		})
+	}
+	return requests
+}
+
+// isRelevantSecret is the predicate that gates the secret watcher. It passes
+// secrets that are either owned by an IAMAccessKey (output secrets) or
+// referenced as admin credentials by an IAMProviderConfig in the same namespace.
+func (r *IAMAccessKeyReconciler) isRelevantSecret(obj client.Object) bool {
+	for _, ref := range obj.GetOwnerReferences() {
+		if ref.Kind == "IAMAccessKey" && ref.APIVersion == awsaccesskeyoperatorv1alpha1.GroupVersion.String() {
+			return true
+		}
+	}
+
+	configList := &awsaccesskeyoperatorv1alpha1.IAMProviderConfigList{}
+	if err := r.Client.List(context.Background(), configList, client.InNamespace(obj.GetNamespace())); err != nil {
+		return false
+	}
+	for _, cfg := range configList.Items {
+		if cfg.Spec.AdminCredentialsSecretRef.Name == obj.GetName() {
+			return true
+		}
+	}
+	return false
+}
+
+// iamAccessKeysForSecret maps a secret to the IAMAccessKey objects that should
+// be re-reconciled when it changes. It handles two cases:
+//   - Output secrets: the secret is owned by an IAMAccessKey → enqueue that key.
+//   - Admin credential secrets: the secret is referenced by an IAMProviderConfig
+//     → enqueue all IAMAccessKey objects that reference that config.
+func (r *IAMAccessKeyReconciler) iamAccessKeysForSecret(ctx context.Context, obj client.Object) []reconcile.Request {
+	var requests []reconcile.Request
+
+	// Case 1: secret is owned by an IAMAccessKey.
+	for _, ref := range obj.GetOwnerReferences() {
+		if ref.Kind == "IAMAccessKey" && ref.APIVersion == awsaccesskeyoperatorv1alpha1.GroupVersion.String() {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{Name: ref.Name, Namespace: obj.GetNamespace()},
+			})
+		}
+	}
+
+	// Case 2: secret is an admin credentials secret for an IAMProviderConfig.
+	configList := &awsaccesskeyoperatorv1alpha1.IAMProviderConfigList{}
+	if err := r.Client.List(ctx, configList, client.InNamespace(obj.GetNamespace())); err != nil {
+		return requests
+	}
+	for _, cfg := range configList.Items {
+		if cfg.Spec.AdminCredentialsSecretRef.Name != obj.GetName() {
+			continue
+		}
+		accessKeyList := &awsaccesskeyoperatorv1alpha1.IAMAccessKeyList{}
+		if err := r.Client.List(ctx, accessKeyList); err != nil {
+			continue
+		}
+		for _, ak := range accessKeyList.Items {
+			ref := ak.Spec.ProviderConfigRef
+			if ref.Name == cfg.Name && ref.Namespace == cfg.Namespace {
+				requests = append(requests, reconcile.Request{
+					NamespacedName: types.NamespacedName{Name: ak.Name, Namespace: ak.Namespace},
+				})
+			}
+		}
+	}
+
+	return requests
 }
