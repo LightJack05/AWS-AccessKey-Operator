@@ -28,6 +28,10 @@ until curl -sf http://127.0.0.1:9333/cluster/status > /dev/null 2>&1; do
   sleep 2
 done
 
+until curl -sf http://127.0.0.1:8888/healthz > /dev/null 2>&1; do
+  sleep 2
+done
+
 sleep 5
 
 # Bootstrap the admin credentials directly via weed shell inside the container
