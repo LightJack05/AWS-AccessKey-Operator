@@ -1,0 +1,38 @@
+apiVersion: aws-accesskey-operator.lightjack.de/v1alpha1
+kind: IAMAccessKey
+metadata:
+  name: foo-accesskey
+  namespace: aws-accesskey-operator-system
+spec:
+  providerConfigRef:
+    name: seaweedfs
+    namespace: aws-accesskey-operator-system
+  username: foo
+  secretName: foo-aws-credentials
+  secretField: creds
+---
+apiVersion: aws-accesskey-operator.lightjack.de/v1alpha1
+kind: IAMAccessKey
+metadata:
+  name: bar-accesskey
+  namespace: default
+spec:
+  providerConfigRef:
+    name: seaweedfs
+    namespace: aws-accesskey-operator-system
+  username: bar
+  secretName: bar-aws-credentials
+  secretField: creds
+---
+apiVersion: aws-accesskey-operator.lightjack.de/v1alpha1
+kind: IAMAccessKey
+metadata:
+  name: baz-accesskey
+  namespace: default
+spec:
+  providerConfigRef:
+    name: seaweedfs
+    namespace: aws-accesskey-operator-system
+  username: baz
+  secretName: baz-aws-credentials
+  secretField: creds

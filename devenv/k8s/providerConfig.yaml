@@ -4,7 +4,7 @@ metadata:
   name: seaweedfs
   namespace: aws-accesskey-operator-system
 spec:
-  endpoint: "http://seaweedfs.ansible-operator-system.svc:8111"
+  endpoint: "http://seaweedfs.ansible-operator-system.svc:8333"
   region: us-east-1
   adminCredentialsSecretRef:
     name: seaweedfs-admin
