@@ -2,4 +2,5 @@
 resources:
 - aws-accesskey-operator_v1alpha1_iamaccesskey.yaml
 - aws-accesskey-operator_v1alpha1_iamproviderconfig.yaml
+- aws-accesskey-operator_v1alpha1_iamprovidergrant.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

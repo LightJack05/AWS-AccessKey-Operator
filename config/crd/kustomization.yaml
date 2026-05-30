@@ -4,6 +4,7 @@
 resources:
 - bases/aws-accesskey-operator.lightjack.de_iamaccesskeys.yaml
 - bases/aws-accesskey-operator.lightjack.de_iamproviderconfigs.yaml
+- bases/aws-accesskey-operator.lightjack.de_iamprovidergrants.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

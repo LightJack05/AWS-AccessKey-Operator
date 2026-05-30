@@ -22,6 +22,9 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the aws-accesskey-operator itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- iamprovidergrant_admin_role.yaml
+- iamprovidergrant_editor_role.yaml
+- iamprovidergrant_viewer_role.yaml
 - iamproviderconfig_admin_role.yaml
 - iamproviderconfig_editor_role.yaml
 - iamproviderconfig_viewer_role.yaml

@@ -1,0 +1,13 @@
+apiVersion: aws-accesskey-operator.lightjack.de/v1alpha1
+kind: IAMProviderGrant
+metadata:
+  labels:
+    app.kubernetes.io/name: aws-accesskey-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: iamprovidergrant-sample
+spec:
+  providerConfigRef:
+    name: iamproviderconfig-sample
+    namespace: aws-accesskey-operator-system
+  allowedUsernames:
+    - example-user
