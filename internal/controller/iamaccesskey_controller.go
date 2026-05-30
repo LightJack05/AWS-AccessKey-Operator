@@ -122,7 +122,7 @@ func (r *IAMAccessKeyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		if err := r.handleProviderConfigNotFound(ctx, accessKey); err != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, nil
 	}
 
 	if err != nil {
@@ -152,7 +152,7 @@ func (r *IAMAccessKeyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	if err := r.setAccessKeyReady(accessKey, "ReconcileSuccess", "Access key successfully created and stored in secret"); err != nil {
-		r.handleGeneralReconcileError(ctx, accessKey, fmt.Errorf("failed to set access key ready after successful reconcile: %w", err))
+		// The access key is ready here, but we couldn't update it's satus. Return the error and try again the next reconcile
 		return ctrl.Result{}, err
 	}
 
