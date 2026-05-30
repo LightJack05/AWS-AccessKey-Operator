@@ -176,6 +176,10 @@ func (r *IAMAccessKeyReconciler) createAccessKeyAndStoreInSecret(ctx context.Con
 		},
 	}
 
+	if err := ctrl.SetControllerReference(accessKey, secret, r.Scheme); err != nil {
+		return fmt.Errorf("failed to set controller reference on secret: %w", err)
+	}
+
 	err = r.Client.Create(ctx, secret)
 	if err != nil {
 		return fmt.Errorf("failed to create secret: %w", err)
