@@ -259,13 +259,15 @@ endef
 
 # Name of the image to build for local testing
 LOCAL_IMG ?= localhost/operator-test:local
+# Name of the kind cluster to use for local development deployment
+KIND_CLUSTER_NAME ?= aws-accesskey-operator
 
 ## Build the image, load it into kind, and deploy to the cluster
 .PHONY: kind-deploy
 kind-deploy:
 	$(MAKE) docker-build IMG=$(LOCAL_IMG)
 	@echo "Loading image $(LOCAL_IMG) into kind..."
-	bash -c 'TMPFILE=$$(mktemp) podman save "$(LOCAL_IMG)" --format oci-archive -o $TMPFILE; kind load image-archive -n $(KIND_CLUSTER_NAME) $TMPFILE; rm $TMPFILE'
+	bash -c 'TMPFILE=$$(mktemp); $(CONTAINER_TOOL) save "$(LOCAL_IMG)" -o $$TMPFILE; kind load image-archive -n $(KIND_CLUSTER_NAME) $$TMPFILE; rm $$TMPFILE'
 	@echo "Deploying to kind..."
 	$(MAKE) deploy IMG=$(LOCAL_IMG)
 
