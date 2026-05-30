@@ -20,6 +20,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type IAMAccessKeyConditions string
+
+const (
+	ConditionReady = "Ready"
+)
+
 // IAMProviderConfigRef references an IAMProviderConfig by name and namespace.
 type IAMProviderConfigRef struct {
 	// name is the name of the IAMProviderConfig.
@@ -57,13 +63,6 @@ type IAMAccessKeySpec struct {
 
 // IAMAccessKeyStatus defines the observed state of IAMAccessKey.
 type IAMAccessKeyStatus struct {
-	// healthy indicates whether the access key has been successfully created
-	// and is currently valid. Defaults to false and is set to true by the
-	// operator after successful reconciliation.
-	// +kubebuilder:default=false
-	// +optional
-	Healthy bool `json:"healthy,omitempty"`
-
 	// message provides a human-readable explanation of the current status,
 	// such as the reason the access key is unhealthy or any relevant error.
 	// +optional
@@ -86,6 +85,8 @@ type IAMAccessKeyStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // IAMAccessKey is the Schema for the iamaccesskeys API
 type IAMAccessKey struct {

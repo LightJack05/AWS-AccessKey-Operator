@@ -14,7 +14,14 @@ spec:
     singular: iamaccesskey
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: IAMAccessKey is the Schema for the iamaccesskeys API
@@ -151,13 +158,6 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              healthy:
-                default: false
-                description: |-
-                  healthy indicates whether the access key has been successfully created
-                  and is currently valid. Defaults to false and is set to true by the
-                  operator after successful reconciliation.
-                type: boolean
               message:
                 description: |-
                   message provides a human-readable explanation of the current status,
