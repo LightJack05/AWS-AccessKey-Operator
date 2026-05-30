@@ -105,7 +105,9 @@ func (r *IAMAccessKeyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			r.handleGeneralReconcileError(ctx, accessKey, err)
 			return ctrl.Result{}, err
 		}
-		r.handleGrantDenied(ctx, accessKey)
+		if err := r.handleGrantDenied(ctx, accessKey); err != nil {
+			return ctrl.Result{}, err
+		}
 		return ctrl.Result{}, nil
 	}
 
@@ -117,12 +119,16 @@ func (r *IAMAccessKeyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}, providerConfig)
 
 	if errors.IsNotFound(err) {
-		r.handleProviderConfigNotFound(ctx, accessKey)
+		if err := r.handleProviderConfigNotFound(ctx, accessKey); err != nil {
+			return ctrl.Result{}, err
+		}
 		return ctrl.Result{}, err
 	}
 
 	if err != nil {
-		r.handleGeneralReconcileError(ctx, accessKey, err)
+		if err := r.handleGeneralReconcileError(ctx, accessKey, err); err != nil {
+			return ctrl.Result{}, err
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -145,7 +151,10 @@ func (r *IAMAccessKeyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
-	r.setAccessKeyReady(accessKey, "ReconcileSuccess", "Access key successfully created and stored in secret")
+	if err := r.setAccessKeyReady(accessKey, "ReconcileSuccess", "Access key successfully created and stored in secret"); err != nil {
+		r.handleGeneralReconcileError(ctx, accessKey, fmt.Errorf("failed to set access key ready after successful reconcile: %w", err))
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -371,7 +380,7 @@ func (r *IAMAccessKeyReconciler) isPermittedByGrant(ctx context.Context, accessK
 	return false, nil
 }
 
-func (r *IAMAccessKeyReconciler) setAccessKeyError(accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, reason, message string) {
+func (r *IAMAccessKeyReconciler) setAccessKeyError(accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, reason, message string) error {
 	meta.SetStatusCondition(&accessKey.Status.Conditions, metav1.Condition{
 		Type:    awsaccesskeyoperatorv1alpha1.ConditionReady,
 		Reason:  reason,
@@ -380,11 +389,13 @@ func (r *IAMAccessKeyReconciler) setAccessKeyError(accessKey *awsaccesskeyoperat
 	})
 
 	if err := r.Status().Update(context.TODO(), accessKey); err != nil {
-		logf.FromContext(context.TODO()).Error(err, "failed to update IAMAccessKey Status")
+		return fmt.Errorf("failed to update IAMAccessKey Status: %w", err)
 	}
+
+	return nil
 }
 
-func (r *IAMAccessKeyReconciler) setAccessKeyReady(accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, reason, message string) {
+func (r *IAMAccessKeyReconciler) setAccessKeyReady(accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, reason, message string) error {
 	meta.SetStatusCondition(&accessKey.Status.Conditions, metav1.Condition{
 		Type:    awsaccesskeyoperatorv1alpha1.ConditionReady,
 		Reason:  reason,
@@ -393,34 +404,47 @@ func (r *IAMAccessKeyReconciler) setAccessKeyReady(accessKey *awsaccesskeyoperat
 	})
 
 	if err := r.Status().Update(context.TODO(), accessKey); err != nil {
-		logf.FromContext(context.TODO()).Error(err, "failed to update IAMAccessKey Status")
+		return fmt.Errorf("failed to update IAMAccessKey Status: %w", err)
 	}
+
+	return nil
 }
 
-func (r *IAMAccessKeyReconciler) handleGrantDenied(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey) {
+func (r *IAMAccessKeyReconciler) handleGrantDenied(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey) error {
 	log := logf.FromContext(ctx)
 	log.Info("no IAMProviderGrant permits this provider/username combination",
 		"namespace", accessKey.Namespace,
 		"providerConfigRef", accessKey.Spec.ProviderConfigRef,
 		"username", accessKey.Spec.Username,
 	)
-	r.setAccessKeyError(accessKey, "GrantDenied", fmt.Sprintf("No IAMProviderGrant in namespace %s permits provider %s/%s for username %s", accessKey.Namespace, accessKey.Spec.ProviderConfigRef.Namespace, accessKey.Spec.ProviderConfigRef.Name, accessKey.Spec.Username))
+	if err := r.setAccessKeyError(accessKey, "GrantDenied", fmt.Sprintf("No IAMProviderGrant in namespace %s permits provider %s/%s for username %s", accessKey.Namespace, accessKey.Spec.ProviderConfigRef.Namespace, accessKey.Spec.ProviderConfigRef.Name, accessKey.Spec.Username)); err != nil {
+		return fmt.Errorf("failed to update IAMAccessKey status after grant denied: %w", err)
+	}
 
+	return nil
 }
 
 // Handle undesirable conditions
-func (r *IAMAccessKeyReconciler) handleProviderConfigNotFound(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey) {
+func (r *IAMAccessKeyReconciler) handleProviderConfigNotFound(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey) error {
 	log := logf.FromContext(ctx)
 	log.Error(fmt.Errorf("provider config not found"), "Failed to get provider config", "namespace", accessKey.Spec.ProviderConfigRef.Namespace, "name", accessKey.Spec.ProviderConfigRef.Name)
 
-	r.setAccessKeyError(accessKey, "ProviderConfigNotFound", fmt.Sprintf("Provider config %s/%s not found", accessKey.Spec.ProviderConfigRef.Namespace, accessKey.Spec.ProviderConfigRef.Name))
+	if err := r.setAccessKeyError(accessKey, "ProviderConfigNotFound", fmt.Sprintf("Provider config %s/%s not found", accessKey.Spec.ProviderConfigRef.Namespace, accessKey.Spec.ProviderConfigRef.Name)); err != nil {
+		return fmt.Errorf("failed to update IAMAccessKey status after provider config not found: %w", err)
+	}
+
+	return nil
 }
 
-func (r *IAMAccessKeyReconciler) handleGeneralReconcileError(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, err error) {
+func (r *IAMAccessKeyReconciler) handleGeneralReconcileError(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, err error) error {
 	log := logf.FromContext(ctx)
 	log.Error(err, "Failed to reconcile IAMAccessKey", "namespace", accessKey.Namespace, "name", accessKey.Name)
 
-	r.setAccessKeyError(accessKey, "ReconcileError", fmt.Sprintf("Error reconciling IAMAccessKey: %v", err))
+	if err := r.setAccessKeyError(accessKey, "ReconcileError", fmt.Sprintf("Error reconciling IAMAccessKey: %v", err)); err != nil {
+		return fmt.Errorf("failed to update IAMAccessKey status after reconcile error: %w", err)
+	}
+
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
