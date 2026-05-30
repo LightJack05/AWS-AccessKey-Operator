@@ -1,8 +1,39 @@
+# Namespaces used by the test scenarios below.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-a
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-b
+---
+
+# ---------------------------------------------------------------------------
+# team-a: grant permits "foo" and "bar" on the seaweedfs provider.
+#   - foo-accesskey  → should be PERMITTED (username in grant)
+#   - bar-accesskey  → should be PERMITTED (username in grant)
+#   - baz-accesskey  → should be DENIED   (username not in grant)
+# ---------------------------------------------------------------------------
+apiVersion: aws-accesskey-operator.lightjack.de/v1alpha1
+kind: IAMProviderGrant
+metadata:
+  name: seaweedfs-grant
+  namespace: team-a
+spec:
+  providerConfigRef:
+    name: seaweedfs
+    namespace: aws-accesskey-operator-system
+  allowedUsernames:
+    - foo
+    - bar
+---
 apiVersion: aws-accesskey-operator.lightjack.de/v1alpha1
 kind: IAMAccessKey
 metadata:
   name: foo-accesskey
-  namespace: aws-accesskey-operator-system
+  namespace: team-a
 spec:
   providerConfigRef:
     name: seaweedfs
@@ -15,7 +46,7 @@ apiVersion: aws-accesskey-operator.lightjack.de/v1alpha1
 kind: IAMAccessKey
 metadata:
   name: bar-accesskey
-  namespace: default
+  namespace: team-a
 spec:
   providerConfigRef:
     name: seaweedfs
@@ -24,15 +55,79 @@ spec:
   secretName: bar-aws-credentials
   secretField: creds
 ---
+# baz is not in the grant's allowedUsernames → GrantDenied condition expected.
 apiVersion: aws-accesskey-operator.lightjack.de/v1alpha1
 kind: IAMAccessKey
 metadata:
   name: baz-accesskey
-  namespace: default
+  namespace: team-a
 spec:
   providerConfigRef:
     name: seaweedfs
     namespace: aws-accesskey-operator-system
   username: baz
   secretName: baz-aws-credentials
+  secretField: creds
+---
+
+# ---------------------------------------------------------------------------
+# team-b: grant permits only "baz" on the seaweedfs provider.
+#   - baz-accesskey  → should be PERMITTED (username in grant)
+#   - foo-accesskey  → should be DENIED   (username not in grant)
+# ---------------------------------------------------------------------------
+apiVersion: aws-accesskey-operator.lightjack.de/v1alpha1
+kind: IAMProviderGrant
+metadata:
+  name: seaweedfs-grant
+  namespace: team-b
+spec:
+  providerConfigRef:
+    name: seaweedfs
+    namespace: aws-accesskey-operator-system
+  allowedUsernames:
+    - baz
+---
+apiVersion: aws-accesskey-operator.lightjack.de/v1alpha1
+kind: IAMAccessKey
+metadata:
+  name: baz-accesskey
+  namespace: team-b
+spec:
+  providerConfigRef:
+    name: seaweedfs
+    namespace: aws-accesskey-operator-system
+  username: baz
+  secretName: baz-aws-credentials
+  secretField: creds
+---
+# foo is not in team-b's grant → GrantDenied condition expected.
+apiVersion: aws-accesskey-operator.lightjack.de/v1alpha1
+kind: IAMAccessKey
+metadata:
+  name: foo-accesskey
+  namespace: team-b
+spec:
+  providerConfigRef:
+    name: seaweedfs
+    namespace: aws-accesskey-operator-system
+  username: foo
+  secretName: foo-aws-credentials
+  secretField: creds
+---
+
+# ---------------------------------------------------------------------------
+# default namespace: no IAMProviderGrant exists at all.
+#   - bar-accesskey  → should be DENIED (no grant in namespace)
+# ---------------------------------------------------------------------------
+apiVersion: aws-accesskey-operator.lightjack.de/v1alpha1
+kind: IAMAccessKey
+metadata:
+  name: bar-accesskey
+  namespace: default
+spec:
+  providerConfigRef:
+    name: seaweedfs
+    namespace: aws-accesskey-operator-system
+  username: bar
+  secretName: bar-aws-credentials
   secretField: creds
