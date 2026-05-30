@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 set -euxo pipefail
 
-K8S_NAMESPACE="${K8S_NAMESPACE:-ansible-operator-system}"
+K8S_NAMESPACE="${K8S_NAMESPACE:-aws-accesskey-operator-system}"
 
 kind create cluster --config kind-config.yaml
 
