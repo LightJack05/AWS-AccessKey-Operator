@@ -5,6 +5,17 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
   - aws-accesskey-operator.lightjack.de
   resources:
   - iamaccesskeys
@@ -30,3 +41,11 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - aws-accesskey-operator.lightjack.de
+  resources:
+  - iamproviderconfigs
+  verbs:
+  - get
+  - list
+  - watch

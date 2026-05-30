@@ -39,10 +39,45 @@ spec:
           spec:
             description: spec defines the desired state of IAMAccessKey
             properties:
-              foo:
-                description: foo is an example field of IAMAccessKey. Edit iamaccesskey_types.go
-                  to remove/update
+              providerConfigRef:
+                description: |-
+                  providerConfigRef references the IAMProviderConfig that defines the IAM
+                  endpoint and credentials to use when managing this access key.
+                properties:
+                  name:
+                    description: name is the name of the IAMProviderConfig.
+                    minLength: 1
+                    type: string
+                  namespace:
+                    description: namespace is the namespace of the IAMProviderConfig.
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                - namespace
+                type: object
+              secretField:
+                description: secretKey is the key within the Kubernetes Secret where
+                  the access key ID and secret access key will be stored in standard
+                  AWS INI format
+                minLength: 1
                 type: string
+              secretName:
+                description: |-
+                  secretName is the name of the Kubernetes Secret where the access key ID and secret access key will be stored after creation.
+                  The Secret will be created in the same namespace as the IAMAccessKey resource.
+                minLength: 1
+                type: string
+              username:
+                description: username is the IAM username this access key belongs
+                  to.
+                minLength: 1
+                type: string
+            required:
+            - providerConfigRef
+            - secretField
+            - secretName
+            - username
             type: object
           status:
             description: status defines the observed state of IAMAccessKey
@@ -116,6 +151,18 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              healthy:
+                default: false
+                description: |-
+                  healthy indicates whether the access key has been successfully created
+                  and is currently valid. Defaults to false and is set to true by the
+                  operator after successful reconciliation.
+                type: boolean
+              message:
+                description: |-
+                  message provides a human-readable explanation of the current status,
+                  such as the reason the access key is unhealthy or any relevant error.
+                type: string
             type: object
         required:
         - spec

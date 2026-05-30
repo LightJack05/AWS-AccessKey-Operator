@@ -39,6 +39,12 @@ spec:
           spec:
             description: spec defines the desired state of IAMProviderConfig
             properties:
+              adminCredentialsSecretKey:
+                description: adminCredentialsSecretKey is the key within the referenced
+                  Secret where the admin credentials are stored in standard AWS INI
+                  format.
+                minLength: 1
+                type: string
               adminCredentialsSecretRef:
                 description: |-
                   adminCredentialsSecretRef references the Secret in the operator namespace
@@ -70,6 +76,7 @@ spec:
                 minLength: 1
                 type: string
             required:
+            - adminCredentialsSecretKey
             - adminCredentialsSecretRef
             - endpoint
             - region
