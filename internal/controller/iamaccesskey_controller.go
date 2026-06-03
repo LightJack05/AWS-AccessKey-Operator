@@ -305,8 +305,8 @@ func (r *IAMAccessKeyReconciler) accessKeySecretExistsAndHasValidKey(ctx context
 		return false, nil
 	}
 
-	stsCleint := sts.NewFromConfig(awsConfig)
-	_, err = stsCleint.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
+	stsClient := sts.NewFromConfig(awsConfig)
+	_, err = stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 	if err != nil {
 		log.Info(fmt.Sprintf("secret %s/%s exists and loads but failed validation, will be reissued: %v", accessKey.Namespace, accessKey.Spec.SecretName, err))
 		err = r.deleteSecret(ctx, secret)
