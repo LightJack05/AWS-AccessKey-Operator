@@ -25,6 +25,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"gopkg.in/ini.v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -296,8 +297,8 @@ func (r *IAMAccessKeyReconciler) accessKeySecretExistsAndHasValidKey(ctx context
 		return false, nil
 	}
 
-	iamClient := iam.NewFromConfig(awsConfig)
-	_, err = iamClient.GetUser(ctx, &iam.GetUserInput{UserName: &accessKey.Spec.Username})
+	stsCleint := sts.NewFromConfig(awsConfig)
+	_, err = stsCleint.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 	if err != nil {
 		log.Info(fmt.Sprintf("secret %s/%s exists and loads but failed validation, will be reissued: %v", accessKey.Namespace, accessKey.Spec.SecretName, err))
 		err = r.deleteSecret(ctx, secret)
