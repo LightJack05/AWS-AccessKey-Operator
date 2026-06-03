@@ -86,10 +86,11 @@ func (r *IAMAccessKeyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// Verify an IAMProviderGrant in this namespace permits the requested provider and username
 	permitted, err := r.isPermittedByGrant(ctx, accessKey)
 	if err != nil {
-		r.handleGeneralReconcileError(ctx, accessKey, err)
+		_ = r.handleGeneralReconcileError(ctx, accessKey, err)
 		return ctrl.Result{}, err
 	}
 	if !permitted {
+		// Access to this user is not permitted for this user
 		accessKeySecret := &corev1.Secret{}
 		err := r.Client.Get(ctx, client.ObjectKey{
 			Namespace: accessKey.Namespace,
@@ -98,15 +99,18 @@ func (r *IAMAccessKeyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		if err == nil {
 			err = r.deleteSecret(ctx, accessKeySecret)
 			if err != nil {
-				r.handleGeneralReconcileError(ctx, accessKey, err)
+				// Couldn't delete the secret, put the object into error state and requeue
+				_ = r.handleGeneralReconcileError(ctx, accessKey, err)
 				return ctrl.Result{}, err
 			}
 		}
 		if err != nil && !errors.IsNotFound(err) {
-			r.handleGeneralReconcileError(ctx, accessKey, err)
+			// Some error other than not found occurred when trying to get the secret, put the object into error state and requeue
+			_ = r.handleGeneralReconcileError(ctx, accessKey, err)
 			return ctrl.Result{}, err
 		}
 		if err := r.handleGrantDenied(ctx, accessKey); err != nil {
+			// Failed to update status after grant denied, requeue and try again
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
@@ -136,20 +140,24 @@ func (r *IAMAccessKeyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// Check if the access key secret already exists and has a valid key
 	secretExists, err := r.accessKeySecretExistsAndHasValidKey(ctx, accessKey, providerConfig)
 	if err != nil {
-		r.handleGeneralReconcileError(ctx, accessKey, err)
+		_ = r.handleGeneralReconcileError(ctx, accessKey, err)
 		return ctrl.Result{}, err
 	}
 
 	if secretExists {
 		// Nothing to do here
-		r.setAccessKeyReady(accessKey, "AlreadyExists", "Access key already exists and is valid in secret")
+		if err := r.setAccessKeyReady(accessKey, "AlreadyExists", "Access key already exists and is valid in secret"); err != nil {
+			// The access key is ready here, but we couldn't update it's satus. Return the error and try again the next reconcile
+			return ctrl.Result{}, err
+		}
+
 		return ctrl.Result{}, nil
 	}
 
 	// Create a new access key and store it in the specified secret
 	err = r.createAccessKeyAndStoreInSecret(ctx, accessKey, providerConfig)
 	if err != nil {
-		r.handleGeneralReconcileError(ctx, accessKey, err)
+		_ = r.handleGeneralReconcileError(ctx, accessKey, err)
 		return ctrl.Result{}, err
 	}
 
