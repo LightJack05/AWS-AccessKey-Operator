@@ -141,6 +141,7 @@ func (r *IAMAccessKeyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	if secretExists {
 		// Nothing to do here
+		r.setAccessKeyReady(accessKey, "AlreadyExists", "Access key already exists and is valid in secret")
 		return ctrl.Result{}, nil
 	}
 
