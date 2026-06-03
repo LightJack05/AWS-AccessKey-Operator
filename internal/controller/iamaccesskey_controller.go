@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -104,7 +105,9 @@ func (r *IAMAccessKeyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			r.handleGeneralReconcileError(ctx, accessKey, err)
 			return ctrl.Result{}, err
 		}
-		r.handleGrantDenied(ctx, accessKey)
+		if err := r.handleGrantDenied(ctx, accessKey); err != nil {
+			return ctrl.Result{}, err
+		}
 		return ctrl.Result{}, nil
 	}
 
@@ -116,12 +119,16 @@ func (r *IAMAccessKeyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}, providerConfig)
 
 	if errors.IsNotFound(err) {
-		r.handleProviderConfigNotFound(ctx, accessKey)
-		return ctrl.Result{}, err
+		if err := r.handleProviderConfigNotFound(ctx, accessKey); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
 	}
 
 	if err != nil {
-		r.handleGeneralReconcileError(ctx, accessKey, err)
+		if err := r.handleGeneralReconcileError(ctx, accessKey, err); err != nil {
+			return ctrl.Result{}, err
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -134,6 +141,7 @@ func (r *IAMAccessKeyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	if secretExists {
 		// Nothing to do here
+		r.setAccessKeyReady(accessKey, "AlreadyExists", "Access key already exists and is valid in secret")
 		return ctrl.Result{}, nil
 	}
 
@@ -144,19 +152,8 @@ func (r *IAMAccessKeyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
-	// Update the status of the IAMAccessKey to reflect successful creation
-	accessKey.Status.Healthy = true
-	accessKey.Status.Message = "Access key successfully created and stored in secret"
-	meta.SetStatusCondition(&accessKey.Status.Conditions, metav1.Condition{
-		Type:    "Ready",
-		Status:  metav1.ConditionTrue,
-		Reason:  "ReconcileSuccess",
-		Message: "Access key successfully created and stored in secret",
-	})
-
-	err = r.Client.Status().Update(ctx, accessKey)
-	if err != nil {
-		log.Error(err, "Failed to update IAMAccessKey status")
+	if err := r.setAccessKeyReady(accessKey, "ReconcileSuccess", "Access key successfully created and stored in secret"); err != nil {
+		// The access key is ready here, but we couldn't update it's satus. Return the error and try again the next reconcile
 		return ctrl.Result{}, err
 	}
 
@@ -171,7 +168,7 @@ func (r *IAMAccessKeyReconciler) createAccessKeyAndStoreInSecret(ctx context.Con
 
 	iamClient := iam.NewFromConfig(adminConfig)
 
-	err = r.clearAccessKeysForuser(ctx, accessKey, providerConfig, iamClient)
+	err = r.clearAccessKeysForuser(ctx, accessKey, iamClient)
 	if err != nil {
 		return fmt.Errorf("failed to clear existing access keys for user: %w", err)
 	}
@@ -209,7 +206,7 @@ func (r *IAMAccessKeyReconciler) createAccessKeyAndStoreInSecret(ctx context.Con
 	return nil
 }
 
-func (r *IAMAccessKeyReconciler) clearAccessKeysForuser(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, providerConfig *awsaccesskeyoperatorv1alpha1.IAMProviderConfig, client *iam.Client) error {
+func (r *IAMAccessKeyReconciler) clearAccessKeysForuser(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, client *iam.Client) error {
 	// List existing access keys for the user
 	listOutput, err := client.ListAccessKeys(ctx, &iam.ListAccessKeysInput{
 		UserName: &accessKey.Spec.Username,
@@ -376,68 +373,79 @@ func (r *IAMAccessKeyReconciler) isPermittedByGrant(ctx context.Context, accessK
 		if ref.Name != accessKey.Spec.ProviderConfigRef.Name || ref.Namespace != accessKey.Spec.ProviderConfigRef.Namespace {
 			continue
 		}
-		for _, u := range grant.Spec.AllowedUsernames {
-			if u == accessKey.Spec.Username {
-				return true, nil
-			}
+		if slices.Contains(grant.Spec.AllowedUsernames, accessKey.Spec.Username) {
+			return true, nil
 		}
 	}
 
 	return false, nil
 }
 
-func (r *IAMAccessKeyReconciler) handleGrantDenied(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey) {
+func (r *IAMAccessKeyReconciler) setAccessKeyError(accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, reason, message string) error {
+	meta.SetStatusCondition(&accessKey.Status.Conditions, metav1.Condition{
+		Type:    awsaccesskeyoperatorv1alpha1.ConditionReady,
+		Reason:  reason,
+		Status:  metav1.ConditionFalse,
+		Message: message,
+	})
+
+	if err := r.Status().Update(context.TODO(), accessKey); err != nil {
+		return fmt.Errorf("failed to update IAMAccessKey Status: %w", err)
+	}
+
+	return nil
+}
+
+func (r *IAMAccessKeyReconciler) setAccessKeyReady(accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, reason, message string) error {
+	meta.SetStatusCondition(&accessKey.Status.Conditions, metav1.Condition{
+		Type:    awsaccesskeyoperatorv1alpha1.ConditionReady,
+		Reason:  reason,
+		Status:  metav1.ConditionTrue,
+		Message: message,
+	})
+
+	if err := r.Status().Update(context.TODO(), accessKey); err != nil {
+		return fmt.Errorf("failed to update IAMAccessKey Status: %w", err)
+	}
+
+	return nil
+}
+
+func (r *IAMAccessKeyReconciler) handleGrantDenied(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey) error {
 	log := logf.FromContext(ctx)
 	log.Info("no IAMProviderGrant permits this provider/username combination",
 		"namespace", accessKey.Namespace,
 		"providerConfigRef", accessKey.Spec.ProviderConfigRef,
 		"username", accessKey.Spec.Username,
 	)
-
-	meta.SetStatusCondition(&accessKey.Status.Conditions, metav1.Condition{
-		Type:    "GrantDenied",
-		Reason:  "NoMatchingGrant",
-		Status:  metav1.ConditionTrue,
-		Message: fmt.Sprintf("No IAMProviderGrant in namespace %s permits provider %s/%s for username %s", accessKey.Namespace, accessKey.Spec.ProviderConfigRef.Namespace, accessKey.Spec.ProviderConfigRef.Name, accessKey.Spec.Username),
-	})
-	accessKey.Status.Healthy = false
-
-	if err := r.Status().Update(ctx, accessKey); err != nil {
-		log.Error(err, "failed to update IAMAccessKey status after grant denial")
+	if err := r.setAccessKeyError(accessKey, "GrantDenied", fmt.Sprintf("No IAMProviderGrant in namespace %s permits provider %s/%s for username %s", accessKey.Namespace, accessKey.Spec.ProviderConfigRef.Namespace, accessKey.Spec.ProviderConfigRef.Name, accessKey.Spec.Username)); err != nil {
+		return fmt.Errorf("failed to update IAMAccessKey status after grant denied: %w", err)
 	}
+
+	return nil
 }
 
 // Handle undesirable conditions
-func (r *IAMAccessKeyReconciler) handleProviderConfigNotFound(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey) {
+func (r *IAMAccessKeyReconciler) handleProviderConfigNotFound(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey) error {
 	log := logf.FromContext(ctx)
 	log.Error(fmt.Errorf("provider config not found"), "Failed to get provider config", "namespace", accessKey.Spec.ProviderConfigRef.Namespace, "name", accessKey.Spec.ProviderConfigRef.Name)
 
-	// Update the status of the IAMAccessKey to reflect the error
-	meta.SetStatusCondition(&accessKey.Status.Conditions, metav1.Condition{
-		Type:    "ProviderError",
-		Reason:  "ProviderConfigNotFound",
-		Status:  metav1.ConditionFalse,
-		Message: fmt.Sprintf("Provider config %s/%s not found", accessKey.Spec.ProviderConfigRef.Namespace, accessKey.Spec.ProviderConfigRef.Name),
-	})
-	accessKey.Status.Healthy = false
+	if err := r.setAccessKeyError(accessKey, "ProviderConfigNotFound", fmt.Sprintf("Provider config %s/%s not found", accessKey.Spec.ProviderConfigRef.Namespace, accessKey.Spec.ProviderConfigRef.Name)); err != nil {
+		return fmt.Errorf("failed to update IAMAccessKey status after provider config not found: %w", err)
+	}
 
-	r.Status().Update(ctx, accessKey)
+	return nil
 }
 
-func (r *IAMAccessKeyReconciler) handleGeneralReconcileError(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, err error) {
+func (r *IAMAccessKeyReconciler) handleGeneralReconcileError(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, err error) error {
 	log := logf.FromContext(ctx)
 	log.Error(err, "Failed to reconcile IAMAccessKey", "namespace", accessKey.Namespace, "name", accessKey.Name)
 
-	// Update the status of the IAMAccessKey to reflect the error
-	meta.SetStatusCondition(&accessKey.Status.Conditions, metav1.Condition{
-		Type:    "ReconcileError",
-		Reason:  "ErrorReconciling",
-		Status:  metav1.ConditionFalse,
-		Message: fmt.Sprintf("Error reconciling IAMAccessKey: %v", err),
-	})
-	accessKey.Status.Healthy = false
+	if err := r.setAccessKeyError(accessKey, "ReconcileError", fmt.Sprintf("Error reconciling IAMAccessKey: %v", err)); err != nil {
+		return fmt.Errorf("failed to update IAMAccessKey status after reconcile error: %w", err)
+	}
 
-	r.Status().Update(ctx, accessKey)
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
