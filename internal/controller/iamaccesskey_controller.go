@@ -97,6 +97,12 @@ func (r *IAMAccessKeyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			Name:      accessKey.Spec.SecretName,
 		}, accessKeySecret)
 		if err == nil {
+			if !isOwnedByAccessKey(accessKeySecret, accessKey) {
+				if err := r.handleSecretConflict(ctx, accessKey); err != nil {
+					return ctrl.Result{}, err
+				}
+				return ctrl.Result{}, nil
+			}
 			err = r.deleteSecret(ctx, accessKeySecret)
 			if err != nil {
 				// Couldn't delete the secret, put the object into error state and requeue
@@ -138,10 +144,17 @@ func (r *IAMAccessKeyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// Check if the access key secret already exists and has a valid key
-	secretExists, err := r.accessKeySecretExistsAndHasValidKey(ctx, accessKey, providerConfig)
+	secretExists, secretConflict, err := r.accessKeySecretExistsAndHasValidKey(ctx, accessKey, providerConfig)
 	if err != nil {
 		_ = r.handleGeneralReconcileError(ctx, accessKey, err)
 		return ctrl.Result{}, err
+	}
+
+	if secretConflict {
+		if err := r.handleSecretConflict(ctx, accessKey); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
 	}
 
 	if secretExists {
@@ -266,7 +279,10 @@ func (r *IAMAccessKeyReconciler) getAdminConfig(ctx context.Context, providerCon
 
 }
 
-func (r *IAMAccessKeyReconciler) accessKeySecretExistsAndHasValidKey(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, providerConfig *awsaccesskeyoperatorv1alpha1.IAMProviderConfig) (bool, error) {
+// accessKeySecretExistsAndHasValidKey returns (exists, conflict, error).
+// conflict is true when the secret exists but is not owned by this IAMAccessKey,
+// preventing recreation. In that case exists is always false.
+func (r *IAMAccessKeyReconciler) accessKeySecretExistsAndHasValidKey(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, providerConfig *awsaccesskeyoperatorv1alpha1.IAMProviderConfig) (bool, bool, error) {
 
 	log := logf.FromContext(ctx)
 	// Check if the secret already exists
@@ -277,47 +293,56 @@ func (r *IAMAccessKeyReconciler) accessKeySecretExistsAndHasValidKey(ctx context
 	}, secret)
 
 	if errors.IsNotFound(err) {
-		return false, nil
+		return false, false, nil
 	}
 
 	if err != nil {
-		return false, fmt.Errorf("failed to get secret: %w", err)
+		return false, false, fmt.Errorf("failed to get secret: %w", err)
 	}
 
 	// Check whether we have a valid access key in the secret
 	secretData, exists := secret.Data[accessKey.Spec.SecretKey]
 	if !exists {
+		if !isOwnedByAccessKey(secret, accessKey) {
+			return false, true, nil
+		}
 		log.Info(fmt.Sprintf("secret %s/%s exists but is missing required key %s, will be reissued", accessKey.Namespace, accessKey.Spec.SecretName, accessKey.Spec.SecretKey))
 		err = r.deleteSecret(ctx, secret)
 		if err != nil {
-			return false, fmt.Errorf("failed to delete invalid secret: %w", err)
+			return false, false, fmt.Errorf("failed to delete invalid secret: %w", err)
 		}
-		return false, nil
+		return false, false, nil
 	}
 
 	awsConfig, err := loadAWSConfigFromString(string(secretData), providerConfig)
 	if err != nil {
+		if !isOwnedByAccessKey(secret, accessKey) {
+			return false, true, nil
+		}
 		log.Info(fmt.Sprintf("secret %s/%s exists but does not contain valid AWS credentials, will be reissued: %v", accessKey.Namespace, accessKey.Spec.SecretName, err))
 		err = r.deleteSecret(ctx, secret)
 		if err != nil {
-			return false, fmt.Errorf("failed to delete invalid secret: %w", err)
+			return false, false, fmt.Errorf("failed to delete invalid secret: %w", err)
 		}
-		return false, nil
+		return false, false, nil
 	}
 
 	stsClient := sts.NewFromConfig(awsConfig)
 	_, err = stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 	if err != nil {
+		if !isOwnedByAccessKey(secret, accessKey) {
+			return false, true, nil
+		}
 		log.Info(fmt.Sprintf("secret %s/%s exists and loads but failed validation, will be reissued: %v", accessKey.Namespace, accessKey.Spec.SecretName, err))
 		err = r.deleteSecret(ctx, secret)
 		if err != nil {
-			return false, fmt.Errorf("failed to delete invalid secret: %w", err)
+			return false, false, fmt.Errorf("failed to delete invalid secret: %w", err)
 		}
-		return false, nil
+		return false, false, nil
 	}
 
 	// key is valid!
-	return true, nil
+	return true, false, nil
 
 }
 
@@ -431,6 +456,34 @@ func (r *IAMAccessKeyReconciler) handleGrantDenied(ctx context.Context, accessKe
 		return fmt.Errorf("failed to update IAMAccessKey status after grant denied: %w", err)
 	}
 
+	return nil
+}
+
+func isOwnedByAccessKey(secret *corev1.Secret, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey) bool {
+	for _, ref := range secret.GetOwnerReferences() {
+		if ref.Kind == "IAMAccessKey" &&
+			ref.APIVersion == awsaccesskeyoperatorv1alpha1.GroupVersion.String() &&
+			ref.Name == accessKey.Name {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *IAMAccessKeyReconciler) handleSecretConflict(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey) error {
+	log := logf.FromContext(ctx)
+	log.Error(
+		fmt.Errorf("secret conflict"),
+		"Secret with the specified name already exists and is not owned by this IAMAccessKey",
+		"namespace", accessKey.Namespace,
+		"secretName", accessKey.Spec.SecretName,
+	)
+	if err := r.setAccessKeyError(accessKey, "SecretConflict", fmt.Sprintf(
+		"Secret %s/%s already exists and is not owned by this IAMAccessKey; manual intervention required",
+		accessKey.Namespace, accessKey.Spec.SecretName,
+	)); err != nil {
+		return fmt.Errorf("failed to update IAMAccessKey status after secret conflict: %w", err)
+	}
 	return nil
 }
 
