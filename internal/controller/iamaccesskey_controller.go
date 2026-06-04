@@ -25,6 +25,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"gopkg.in/ini.v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -85,27 +86,37 @@ func (r *IAMAccessKeyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// Verify an IAMProviderGrant in this namespace permits the requested provider and username
 	permitted, err := r.isPermittedByGrant(ctx, accessKey)
 	if err != nil {
-		r.handleGeneralReconcileError(ctx, accessKey, err)
+		_ = r.handleGeneralReconcileError(ctx, accessKey, err)
 		return ctrl.Result{}, err
 	}
 	if !permitted {
+		// Access to this username is not permitted by any IAMProviderGrant
 		accessKeySecret := &corev1.Secret{}
 		err := r.Client.Get(ctx, client.ObjectKey{
 			Namespace: accessKey.Namespace,
 			Name:      accessKey.Spec.SecretName,
 		}, accessKeySecret)
 		if err == nil {
+			if !isOwnedByAccessKey(accessKeySecret, accessKey) {
+				if err := r.handleSecretConflict(ctx, accessKey); err != nil {
+					return ctrl.Result{}, err
+				}
+				return ctrl.Result{}, nil
+			}
 			err = r.deleteSecret(ctx, accessKeySecret)
 			if err != nil {
-				r.handleGeneralReconcileError(ctx, accessKey, err)
+				// Couldn't delete the secret, put the object into error state and requeue
+				_ = r.handleGeneralReconcileError(ctx, accessKey, err)
 				return ctrl.Result{}, err
 			}
 		}
 		if err != nil && !errors.IsNotFound(err) {
-			r.handleGeneralReconcileError(ctx, accessKey, err)
+			// Some error other than not found occurred when trying to get the secret, put the object into error state and requeue
+			_ = r.handleGeneralReconcileError(ctx, accessKey, err)
 			return ctrl.Result{}, err
 		}
 		if err := r.handleGrantDenied(ctx, accessKey); err != nil {
+			// Failed to update status after grant denied, requeue and try again
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
@@ -133,26 +144,37 @@ func (r *IAMAccessKeyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// Check if the access key secret already exists and has a valid key
-	secretExists, err := r.accessKeySecretExistsAndHasValidKey(ctx, accessKey, providerConfig)
+	secretExists, secretConflict, err := r.accessKeySecretExistsAndHasValidKey(ctx, accessKey, providerConfig)
 	if err != nil {
-		r.handleGeneralReconcileError(ctx, accessKey, err)
+		_ = r.handleGeneralReconcileError(ctx, accessKey, err)
 		return ctrl.Result{}, err
+	}
+
+	if secretConflict {
+		if err := r.handleSecretConflict(ctx, accessKey); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
 	}
 
 	if secretExists {
 		// Nothing to do here
-		r.setAccessKeyReady(accessKey, "AlreadyExists", "Access key already exists and is valid in secret")
+		if err := r.setAccessKeyReady(ctx, accessKey, "AlreadyExists", "Access key already exists and is valid in secret"); err != nil {
+			// The access key is ready here, but we couldn't update it's satus. Return the error and try again the next reconcile
+			return ctrl.Result{}, err
+		}
+
 		return ctrl.Result{}, nil
 	}
 
 	// Create a new access key and store it in the specified secret
 	err = r.createAccessKeyAndStoreInSecret(ctx, accessKey, providerConfig)
 	if err != nil {
-		r.handleGeneralReconcileError(ctx, accessKey, err)
+		_ = r.handleGeneralReconcileError(ctx, accessKey, err)
 		return ctrl.Result{}, err
 	}
 
-	if err := r.setAccessKeyReady(accessKey, "ReconcileSuccess", "Access key successfully created and stored in secret"); err != nil {
+	if err := r.setAccessKeyReady(ctx, accessKey, "ReconcileSuccess", "Access key successfully created and stored in secret"); err != nil {
 		// The access key is ready here, but we couldn't update it's satus. Return the error and try again the next reconcile
 		return ctrl.Result{}, err
 	}
@@ -190,7 +212,7 @@ func (r *IAMAccessKeyReconciler) createAccessKeyAndStoreInSecret(ctx context.Con
 			Namespace: accessKey.Namespace,
 		},
 		Data: map[string][]byte{
-			accessKey.Spec.SecretKey: []byte(secretData),
+			accessKey.Spec.SecretField: []byte(secretData),
 		},
 	}
 
@@ -248,7 +270,7 @@ func (r *IAMAccessKeyReconciler) getAdminConfig(ctx context.Context, providerCon
 		return aws.Config{}, fmt.Errorf("admin secret is missing required key: %s", providerConfig.Spec.AdminCredentialsSecretKey)
 	}
 
-	awsConfig, err := loadAWSConfigFromString(string(secretData), providerConfig)
+	awsConfig, err := loadAWSConfigFromString(ctx, string(secretData), providerConfig)
 	if err != nil {
 		return aws.Config{}, fmt.Errorf("failed to load AWS config from admin secret: %w", err)
 	}
@@ -257,7 +279,10 @@ func (r *IAMAccessKeyReconciler) getAdminConfig(ctx context.Context, providerCon
 
 }
 
-func (r *IAMAccessKeyReconciler) accessKeySecretExistsAndHasValidKey(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, providerConfig *awsaccesskeyoperatorv1alpha1.IAMProviderConfig) (bool, error) {
+// accessKeySecretExistsAndHasValidKey returns (exists, conflict, error).
+// conflict is true when the secret exists but is not owned by this IAMAccessKey,
+// preventing recreation. In that case exists is always false.
+func (r *IAMAccessKeyReconciler) accessKeySecretExistsAndHasValidKey(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, providerConfig *awsaccesskeyoperatorv1alpha1.IAMProviderConfig) (bool, bool, error) {
 
 	log := logf.FromContext(ctx)
 	// Check if the secret already exists
@@ -268,47 +293,56 @@ func (r *IAMAccessKeyReconciler) accessKeySecretExistsAndHasValidKey(ctx context
 	}, secret)
 
 	if errors.IsNotFound(err) {
-		return false, nil
+		return false, false, nil
 	}
 
 	if err != nil {
-		return false, fmt.Errorf("failed to get secret: %w", err)
+		return false, false, fmt.Errorf("failed to get secret: %w", err)
 	}
 
 	// Check whether we have a valid access key in the secret
-	secretData, exists := secret.Data[accessKey.Spec.SecretKey]
+	secretData, exists := secret.Data[accessKey.Spec.SecretField]
 	if !exists {
-		log.Info(fmt.Sprintf("secret %s/%s exists but is missing required key %s, will be reissued", accessKey.Namespace, accessKey.Spec.SecretName, accessKey.Spec.SecretKey))
+		if !isOwnedByAccessKey(secret, accessKey) {
+			return false, true, nil
+		}
+		log.Info(fmt.Sprintf("secret %s/%s exists but is missing required key %s, will be reissued", accessKey.Namespace, accessKey.Spec.SecretName, accessKey.Spec.SecretField))
 		err = r.deleteSecret(ctx, secret)
 		if err != nil {
-			return false, fmt.Errorf("failed to delete invalid secret: %w", err)
+			return false, false, fmt.Errorf("failed to delete invalid secret: %w", err)
 		}
-		return false, nil
+		return false, false, nil
 	}
 
-	awsConfig, err := loadAWSConfigFromString(string(secretData), providerConfig)
+	awsConfig, err := loadAWSConfigFromString(ctx, string(secretData), providerConfig)
 	if err != nil {
+		if !isOwnedByAccessKey(secret, accessKey) {
+			return false, true, nil
+		}
 		log.Info(fmt.Sprintf("secret %s/%s exists but does not contain valid AWS credentials, will be reissued: %v", accessKey.Namespace, accessKey.Spec.SecretName, err))
 		err = r.deleteSecret(ctx, secret)
 		if err != nil {
-			return false, fmt.Errorf("failed to delete invalid secret: %w", err)
+			return false, false, fmt.Errorf("failed to delete invalid secret: %w", err)
 		}
-		return false, nil
+		return false, false, nil
 	}
 
-	iamClient := iam.NewFromConfig(awsConfig)
-	_, err = iamClient.GetUser(ctx, &iam.GetUserInput{UserName: &accessKey.Spec.Username})
+	stsClient := sts.NewFromConfig(awsConfig)
+	_, err = stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 	if err != nil {
+		if !isOwnedByAccessKey(secret, accessKey) {
+			return false, true, nil
+		}
 		log.Info(fmt.Sprintf("secret %s/%s exists and loads but failed validation, will be reissued: %v", accessKey.Namespace, accessKey.Spec.SecretName, err))
 		err = r.deleteSecret(ctx, secret)
 		if err != nil {
-			return false, fmt.Errorf("failed to delete invalid secret: %w", err)
+			return false, false, fmt.Errorf("failed to delete invalid secret: %w", err)
 		}
-		return false, nil
+		return false, false, nil
 	}
 
 	// key is valid!
-	return true, nil
+	return true, false, nil
 
 }
 
@@ -323,7 +357,7 @@ func (r *IAMAccessKeyReconciler) deleteSecret(ctx context.Context, secret *corev
 	return nil
 }
 
-func loadAWSConfigFromString(configString string, providerConfig *awsaccesskeyoperatorv1alpha1.IAMProviderConfig) (aws.Config, error) {
+func loadAWSConfigFromString(ctx context.Context, configString string, providerConfig *awsaccesskeyoperatorv1alpha1.IAMProviderConfig) (aws.Config, error) {
 	iniData, err := ini.Load([]byte(configString))
 	if err != nil {
 		return aws.Config{}, fmt.Errorf("failed to parse AWS config: %w", err)
@@ -342,7 +376,7 @@ func loadAWSConfigFromString(configString string, providerConfig *awsaccesskeyop
 	}
 
 	cfg, err := config.LoadDefaultConfig(
-		context.TODO(),
+		ctx,
 		config.WithRegion(providerConfig.Spec.Region),
 		config.WithBaseEndpoint(providerConfig.Spec.Endpoint),
 		config.WithCredentialsProvider(
@@ -381,7 +415,7 @@ func (r *IAMAccessKeyReconciler) isPermittedByGrant(ctx context.Context, accessK
 	return false, nil
 }
 
-func (r *IAMAccessKeyReconciler) setAccessKeyError(accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, reason, message string) error {
+func (r *IAMAccessKeyReconciler) setAccessKeyError(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, reason, message string) error {
 	meta.SetStatusCondition(&accessKey.Status.Conditions, metav1.Condition{
 		Type:    awsaccesskeyoperatorv1alpha1.ConditionReady,
 		Reason:  reason,
@@ -389,14 +423,14 @@ func (r *IAMAccessKeyReconciler) setAccessKeyError(accessKey *awsaccesskeyoperat
 		Message: message,
 	})
 
-	if err := r.Status().Update(context.TODO(), accessKey); err != nil {
+	if err := r.Status().Update(ctx, accessKey); err != nil {
 		return fmt.Errorf("failed to update IAMAccessKey Status: %w", err)
 	}
 
 	return nil
 }
 
-func (r *IAMAccessKeyReconciler) setAccessKeyReady(accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, reason, message string) error {
+func (r *IAMAccessKeyReconciler) setAccessKeyReady(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, reason, message string) error {
 	meta.SetStatusCondition(&accessKey.Status.Conditions, metav1.Condition{
 		Type:    awsaccesskeyoperatorv1alpha1.ConditionReady,
 		Reason:  reason,
@@ -404,7 +438,7 @@ func (r *IAMAccessKeyReconciler) setAccessKeyReady(accessKey *awsaccesskeyoperat
 		Message: message,
 	})
 
-	if err := r.Status().Update(context.TODO(), accessKey); err != nil {
+	if err := r.Status().Update(ctx, accessKey); err != nil {
 		return fmt.Errorf("failed to update IAMAccessKey Status: %w", err)
 	}
 
@@ -418,10 +452,38 @@ func (r *IAMAccessKeyReconciler) handleGrantDenied(ctx context.Context, accessKe
 		"providerConfigRef", accessKey.Spec.ProviderConfigRef,
 		"username", accessKey.Spec.Username,
 	)
-	if err := r.setAccessKeyError(accessKey, "GrantDenied", fmt.Sprintf("No IAMProviderGrant in namespace %s permits provider %s/%s for username %s", accessKey.Namespace, accessKey.Spec.ProviderConfigRef.Namespace, accessKey.Spec.ProviderConfigRef.Name, accessKey.Spec.Username)); err != nil {
+	if err := r.setAccessKeyError(ctx, accessKey, "GrantDenied", fmt.Sprintf("No IAMProviderGrant in namespace %s permits provider %s/%s for username %s", accessKey.Namespace, accessKey.Spec.ProviderConfigRef.Namespace, accessKey.Spec.ProviderConfigRef.Name, accessKey.Spec.Username)); err != nil {
 		return fmt.Errorf("failed to update IAMAccessKey status after grant denied: %w", err)
 	}
 
+	return nil
+}
+
+func isOwnedByAccessKey(secret *corev1.Secret, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey) bool {
+	for _, ref := range secret.GetOwnerReferences() {
+		if ref.Kind == "IAMAccessKey" &&
+			ref.APIVersion == awsaccesskeyoperatorv1alpha1.GroupVersion.String() &&
+			ref.Name == accessKey.Name {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *IAMAccessKeyReconciler) handleSecretConflict(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey) error {
+	log := logf.FromContext(ctx)
+	log.Error(
+		fmt.Errorf("secret conflict"),
+		"Secret with the specified name already exists and is not owned by this IAMAccessKey",
+		"namespace", accessKey.Namespace,
+		"secretName", accessKey.Spec.SecretName,
+	)
+	if err := r.setAccessKeyError(ctx, accessKey, "SecretConflict", fmt.Sprintf(
+		"Secret %s/%s already exists and is not owned by this IAMAccessKey; manual intervention required",
+		accessKey.Namespace, accessKey.Spec.SecretName,
+	)); err != nil {
+		return fmt.Errorf("failed to update IAMAccessKey status after secret conflict: %w", err)
+	}
 	return nil
 }
 
@@ -430,7 +492,7 @@ func (r *IAMAccessKeyReconciler) handleProviderConfigNotFound(ctx context.Contex
 	log := logf.FromContext(ctx)
 	log.Error(fmt.Errorf("provider config not found"), "Failed to get provider config", "namespace", accessKey.Spec.ProviderConfigRef.Namespace, "name", accessKey.Spec.ProviderConfigRef.Name)
 
-	if err := r.setAccessKeyError(accessKey, "ProviderConfigNotFound", fmt.Sprintf("Provider config %s/%s not found", accessKey.Spec.ProviderConfigRef.Namespace, accessKey.Spec.ProviderConfigRef.Name)); err != nil {
+	if err := r.setAccessKeyError(ctx, accessKey, "ProviderConfigNotFound", fmt.Sprintf("Provider config %s/%s not found", accessKey.Spec.ProviderConfigRef.Namespace, accessKey.Spec.ProviderConfigRef.Name)); err != nil {
 		return fmt.Errorf("failed to update IAMAccessKey status after provider config not found: %w", err)
 	}
 
@@ -441,7 +503,7 @@ func (r *IAMAccessKeyReconciler) handleGeneralReconcileError(ctx context.Context
 	log := logf.FromContext(ctx)
 	log.Error(err, "Failed to reconcile IAMAccessKey", "namespace", accessKey.Namespace, "name", accessKey.Name)
 
-	if err := r.setAccessKeyError(accessKey, "ReconcileError", fmt.Sprintf("Error reconciling IAMAccessKey: %v", err)); err != nil {
+	if err := r.setAccessKeyError(ctx, accessKey, "ReconcileError", fmt.Sprintf("Error reconciling IAMAccessKey: %v", err)); err != nil {
 		return fmt.Errorf("failed to update IAMAccessKey status after reconcile error: %w", err)
 	}
 
