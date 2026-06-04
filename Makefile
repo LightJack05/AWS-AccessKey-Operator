@@ -259,15 +259,20 @@ endef
 
 # Name of the image to build for local testing
 LOCAL_IMG ?= localhost/operator-test:local
+LOCAL_REPO ?= localhost/operator-test
+LOCAL_TAG ?= local
 # Name of the kind cluster to use for local development deployment
 KIND_CLUSTER_NAME ?= aws-accesskey-operator
 
-## Build the image, load it into kind, and deploy to the cluster
-.PHONY: kind-deploy
-kind-deploy:
+.PHONY: kind-load-image
+kind-load-image:
 	$(MAKE) docker-build IMG=$(LOCAL_IMG)
 	@echo "Loading image $(LOCAL_IMG) into kind..."
 	bash -c 'TMPFILE=$$(mktemp); $(CONTAINER_TOOL) save "$(LOCAL_IMG)" -o $$TMPFILE; kind load image-archive -n $(KIND_CLUSTER_NAME) $$TMPFILE; rm $$TMPFILE'
+
+## Build the image, load it into kind, and deploy to the cluster
+.PHONY: kind-deploy
+kind-deploy: kind-load-image ## Deploy manager to the kind cluster.
 	@echo "Deploying to kind..."
 	$(MAKE) deploy IMG=$(LOCAL_IMG)
 
@@ -290,3 +295,43 @@ devenv-down:
 reset-devenv:
 	$(MAKE) devenv-down
 	$(MAKE) devenv-up
+
+##@ Helm Deployment
+
+## Helm binary to use for deploying the chart
+HELM ?= helm
+## Namespace to deploy the Helm release
+HELM_NAMESPACE ?= aws-accesskey-operator-system
+## Name of the Helm release
+HELM_RELEASE ?= aws-accesskey-operator
+## Path to the Helm chart directory
+HELM_CHART_DIR ?= dist/chart
+## Additional arguments to pass to helm commands
+HELM_EXTRA_ARGS ?=
+
+.PHONY: helm-deploy
+helm-deploy: kind-load-image ## Deploy manager to the K8s cluster via Helm. Specify an image with IMG.
+	$(HELM) upgrade --install $(HELM_RELEASE) $(HELM_CHART_DIR) \
+		--namespace $(HELM_NAMESPACE) \
+		--create-namespace \
+		--set manager.image.repository=$(LOCAL_REPO) \
+		--set manager.image.tag=$(LOCAL_TAG) \
+		--wait \
+		--timeout 5m \
+		$(HELM_EXTRA_ARGS)
+
+.PHONY: helm-uninstall
+helm-uninstall: ## Uninstall the Helm release from the K8s cluster.
+	$(HELM) uninstall $(HELM_RELEASE) --namespace $(HELM_NAMESPACE)
+
+.PHONY: helm-status
+helm-status: ## Show Helm release status.
+	$(HELM) status $(HELM_RELEASE) --namespace $(HELM_NAMESPACE)
+
+.PHONY: helm-history
+helm-history: ## Show Helm release history.
+	$(HELM) history $(HELM_RELEASE) --namespace $(HELM_NAMESPACE)
+
+.PHONY: helm-rollback
+helm-rollback: ## Rollback to previous Helm release.
+	$(HELM) rollback $(HELM_RELEASE) --namespace $(HELM_NAMESPACE)

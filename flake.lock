@@ -6,11 +6,11 @@
       },
       "locked": {
         "dir": "lib/general",
-        "lastModified": 1780528296,
-        "narHash": "sha256-NbyCSEcPsVz2TInce26lo9Y8xGwy1jJhsiwCIK6+6aw=",
+        "lastModified": 1780593913,
+        "narHash": "sha256-Rw7VbwtVYJu3qOCwdBZ4lIfxt2WeBc0R1sgF1nNT/co=",
         "ref": "refs/heads/main",
-        "rev": "6267a7b6be9ec64875f241f961f2b33b08061916",
-        "revCount": 15,
+        "rev": "611da48a120b2eba6ad5b2700e9322c216ba23c3",
+        "revCount": 17,
         "type": "git",
         "url": "https://gitea.lightjack.de/LightJack05/nix-library"
       },
@@ -45,11 +45,11 @@
       },
       "locked": {
         "dir": "lib/go-license-collector",
-        "lastModified": 1780528296,
-        "narHash": "sha256-NbyCSEcPsVz2TInce26lo9Y8xGwy1jJhsiwCIK6+6aw=",
+        "lastModified": 1780593913,
+        "narHash": "sha256-Rw7VbwtVYJu3qOCwdBZ4lIfxt2WeBc0R1sgF1nNT/co=",
         "ref": "refs/heads/main",
-        "rev": "6267a7b6be9ec64875f241f961f2b33b08061916",
-        "revCount": 15,
+        "rev": "611da48a120b2eba6ad5b2700e9322c216ba23c3",
+        "revCount": 17,
         "type": "git",
         "url": "https://gitea.lightjack.de/LightJack05/nix-library"
       },
@@ -65,11 +65,11 @@
       },
       "locked": {
         "dir": "lib/kind",
-        "lastModified": 1780528296,
-        "narHash": "sha256-NbyCSEcPsVz2TInce26lo9Y8xGwy1jJhsiwCIK6+6aw=",
+        "lastModified": 1780593913,
+        "narHash": "sha256-Rw7VbwtVYJu3qOCwdBZ4lIfxt2WeBc0R1sgF1nNT/co=",
         "ref": "refs/heads/main",
-        "rev": "6267a7b6be9ec64875f241f961f2b33b08061916",
-        "revCount": 15,
+        "rev": "611da48a120b2eba6ad5b2700e9322c216ba23c3",
+        "revCount": 17,
         "type": "git",
         "url": "https://gitea.lightjack.de/LightJack05/nix-library"
       },
@@ -85,11 +85,11 @@
       },
       "locked": {
         "dir": "shells/kubebuilder",
-        "lastModified": 1780528296,
-        "narHash": "sha256-NbyCSEcPsVz2TInce26lo9Y8xGwy1jJhsiwCIK6+6aw=",
+        "lastModified": 1780593913,
+        "narHash": "sha256-Rw7VbwtVYJu3qOCwdBZ4lIfxt2WeBc0R1sgF1nNT/co=",
         "ref": "refs/heads/main",
-        "rev": "6267a7b6be9ec64875f241f961f2b33b08061916",
-        "revCount": 15,
+        "rev": "611da48a120b2eba6ad5b2700e9322c216ba23c3",
+        "revCount": 17,
         "type": "git",
         "url": "https://gitea.lightjack.de/LightJack05/nix-library"
       },
@@ -101,11 +101,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1780336545,
-        "narHash": "sha256-vhVhuXzFrIOfcssC/9hDHx7MHzDKjF3keHuREOQqQiQ=",
+        "lastModified": 1780365719,
+        "narHash": "sha256-QfWfccTN+70ZQ4m2qlU9PiKfz2Yppq94058iJyARNwc=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "4df1b885d76a54e1aa1a318f8d16fd6005b6401f",
+        "rev": "ffa10e26ae11d676b2db836259889f1f571cb14f",
         "type": "github"
       },
       "original": {
@@ -117,11 +117,11 @@
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1780527956,
-        "narHash": "sha256-+ksxiQRvTICz4Ne+Lv6DgGG1BtzNYrmhmzm+AqInEsI=",
+        "lastModified": 1780593475,
+        "narHash": "sha256-2mEmpvP9TeVc2DVXaBP9fzrXwfY0fvO7rkWWQg4DOfU=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "c7a55f2b4ada4620c2d5175e3f9f7df023d54f4d",
+        "rev": "c4f8c1487e7ffd81ea087326139afe10efb7a48c",
         "type": "github"
       },
       "original": {
@@ -132,11 +132,11 @@
     },
     "nixpkgs_3": {
       "locked": {
-        "lastModified": 1780336545,
-        "narHash": "sha256-vhVhuXzFrIOfcssC/9hDHx7MHzDKjF3keHuREOQqQiQ=",
+        "lastModified": 1780365719,
+        "narHash": "sha256-QfWfccTN+70ZQ4m2qlU9PiKfz2Yppq94058iJyARNwc=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "4df1b885d76a54e1aa1a318f8d16fd6005b6401f",
+        "rev": "ffa10e26ae11d676b2db836259889f1f571cb14f",
         "type": "github"
       },
       "original": {
@@ -148,11 +148,11 @@
     },
     "nixpkgs_4": {
       "locked": {
-        "lastModified": 1780336545,
-        "narHash": "sha256-vhVhuXzFrIOfcssC/9hDHx7MHzDKjF3keHuREOQqQiQ=",
+        "lastModified": 1780365719,
+        "narHash": "sha256-QfWfccTN+70ZQ4m2qlU9PiKfz2Yppq94058iJyARNwc=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "4df1b885d76a54e1aa1a318f8d16fd6005b6401f",
+        "rev": "ffa10e26ae11d676b2db836259889f1f571cb14f",
         "type": "github"
       },
       "original": {
@@ -164,11 +164,11 @@
     },
     "nixpkgs_5": {
       "locked": {
-        "lastModified": 1780336545,
-        "narHash": "sha256-vhVhuXzFrIOfcssC/9hDHx7MHzDKjF3keHuREOQqQiQ=",
+        "lastModified": 1780365719,
+        "narHash": "sha256-QfWfccTN+70ZQ4m2qlU9PiKfz2Yppq94058iJyARNwc=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "4df1b885d76a54e1aa1a318f8d16fd6005b6401f",
+        "rev": "ffa10e26ae11d676b2db836259889f1f571cb14f",
         "type": "github"
       },
       "original": {
@@ -180,11 +180,11 @@
     },
     "nixpkgs_6": {
       "locked": {
-        "lastModified": 1780336545,
-        "narHash": "sha256-vhVhuXzFrIOfcssC/9hDHx7MHzDKjF3keHuREOQqQiQ=",
+        "lastModified": 1780365719,
+        "narHash": "sha256-QfWfccTN+70ZQ4m2qlU9PiKfz2Yppq94058iJyARNwc=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "4df1b885d76a54e1aa1a318f8d16fd6005b6401f",
+        "rev": "ffa10e26ae11d676b2db836259889f1f571cb14f",
         "type": "github"
       },
       "original": {
@@ -196,11 +196,11 @@
     },
     "nixpkgs_7": {
       "locked": {
-        "lastModified": 1780336545,
-        "narHash": "sha256-vhVhuXzFrIOfcssC/9hDHx7MHzDKjF3keHuREOQqQiQ=",
+        "lastModified": 1780365719,
+        "narHash": "sha256-QfWfccTN+70ZQ4m2qlU9PiKfz2Yppq94058iJyARNwc=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "4df1b885d76a54e1aa1a318f8d16fd6005b6401f",
+        "rev": "ffa10e26ae11d676b2db836259889f1f571cb14f",
         "type": "github"
       },
       "original": {
@@ -216,11 +216,11 @@
       },
       "locked": {
         "dir": "lib/podman",
-        "lastModified": 1780528296,
-        "narHash": "sha256-NbyCSEcPsVz2TInce26lo9Y8xGwy1jJhsiwCIK6+6aw=",
+        "lastModified": 1780593913,
+        "narHash": "sha256-Rw7VbwtVYJu3qOCwdBZ4lIfxt2WeBc0R1sgF1nNT/co=",
         "ref": "refs/heads/main",
-        "rev": "6267a7b6be9ec64875f241f961f2b33b08061916",
-        "revCount": 15,
+        "rev": "611da48a120b2eba6ad5b2700e9322c216ba23c3",
+        "revCount": 17,
         "type": "git",
         "url": "https://gitea.lightjack.de/LightJack05/nix-library"
       },

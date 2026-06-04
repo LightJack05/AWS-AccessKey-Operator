@@ -1,0 +1,34 @@
+name: Test Chart
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test-e2e:
+    name: Run on Ubuntu
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31.9.0
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Test helm deployment
+        run: |
+          nix develop --command bash -c "
+            export KUBECONFIG=$(mktemp)
+            kind create cluster
+            go mod tidy
+            make docker-build IMG=aws-accesskey-operator:latest
+            kind load docker-image aws-accesskey-operator:latest
+            helm lint ./dist/chart
+            make helm-deploy IMG=aws-accesskey-operator:v0.1.0
+            make helm-status
+          "
