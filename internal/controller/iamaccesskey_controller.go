@@ -212,7 +212,7 @@ func (r *IAMAccessKeyReconciler) createAccessKeyAndStoreInSecret(ctx context.Con
 			Namespace: accessKey.Namespace,
 		},
 		Data: map[string][]byte{
-			accessKey.Spec.SecretKey: []byte(secretData),
+			accessKey.Spec.SecretField: []byte(secretData),
 		},
 	}
 
@@ -301,12 +301,12 @@ func (r *IAMAccessKeyReconciler) accessKeySecretExistsAndHasValidKey(ctx context
 	}
 
 	// Check whether we have a valid access key in the secret
-	secretData, exists := secret.Data[accessKey.Spec.SecretKey]
+	secretData, exists := secret.Data[accessKey.Spec.SecretField]
 	if !exists {
 		if !isOwnedByAccessKey(secret, accessKey) {
 			return false, true, nil
 		}
-		log.Info(fmt.Sprintf("secret %s/%s exists but is missing required key %s, will be reissued", accessKey.Namespace, accessKey.Spec.SecretName, accessKey.Spec.SecretKey))
+		log.Info(fmt.Sprintf("secret %s/%s exists but is missing required key %s, will be reissued", accessKey.Namespace, accessKey.Spec.SecretName, accessKey.Spec.SecretField))
 		err = r.deleteSecret(ctx, secret)
 		if err != nil {
 			return false, false, fmt.Errorf("failed to delete invalid secret: %w", err)

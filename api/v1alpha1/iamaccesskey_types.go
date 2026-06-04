@@ -56,7 +56,7 @@ type IAMAccessKeySpec struct {
 	// secretKey is the key within the Kubernetes Secret where the access key ID and secret access key will be stored in standard AWS INI format
 	// +kubebuilder:validation:MinLength=1
 	// +required
-	SecretKey string `json:"secretField"`
+	SecretField string `json:"secretField"`
 }
 
 // IAMAccessKeyStatus defines the observed state of IAMAccessKey.
