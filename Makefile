@@ -259,15 +259,20 @@ endef
 
 # Name of the image to build for local testing
 LOCAL_IMG ?= localhost/operator-test:local
+LOCAL_REPO ?= localhost/operator-test
+LOCAL_TAG ?= local
 # Name of the kind cluster to use for local development deployment
 KIND_CLUSTER_NAME ?= aws-accesskey-operator
 
-## Build the image, load it into kind, and deploy to the cluster
-.PHONY: kind-deploy
-kind-deploy:
+.PHONY: kind-load-image
+kind-load-image:
 	$(MAKE) docker-build IMG=$(LOCAL_IMG)
 	@echo "Loading image $(LOCAL_IMG) into kind..."
 	bash -c 'TMPFILE=$$(mktemp); $(CONTAINER_TOOL) save "$(LOCAL_IMG)" -o $$TMPFILE; kind load image-archive -n $(KIND_CLUSTER_NAME) $$TMPFILE; rm $$TMPFILE'
+
+## Build the image, load it into kind, and deploy to the cluster
+.PHONY: kind-deploy
+kind-deploy: kind-load-image ## Deploy manager to the kind cluster.
 	@echo "Deploying to kind..."
 	$(MAKE) deploy IMG=$(LOCAL_IMG)
 
@@ -304,20 +309,13 @@ HELM_CHART_DIR ?= dist/chart
 ## Additional arguments to pass to helm commands
 HELM_EXTRA_ARGS ?=
 
-.PHONY: install-helm
-install-helm: ## Install the latest version of Helm.
-	@command -v $(HELM) >/dev/null 2>&1 || { \
-		echo "Installing Helm..." && \
-		curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-4 | bash; \
-	}
-
 .PHONY: helm-deploy
-helm-deploy: install-helm ## Deploy manager to the K8s cluster via Helm. Specify an image with IMG.
+helm-deploy: kind-load-image ## Deploy manager to the K8s cluster via Helm. Specify an image with IMG.
 	$(HELM) upgrade --install $(HELM_RELEASE) $(HELM_CHART_DIR) \
 		--namespace $(HELM_NAMESPACE) \
 		--create-namespace \
-		--set manager.image.repository=$${IMG%:*} \
-		--set manager.image.tag=$${IMG##*:} \
+		--set manager.image.repository=$(LOCAL_REPO) \
+		--set manager.image.tag=$(LOCAL_TAG) \
 		--wait \
 		--timeout 5m \
 		$(HELM_EXTRA_ARGS)
