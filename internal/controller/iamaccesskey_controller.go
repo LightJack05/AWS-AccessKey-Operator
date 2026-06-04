@@ -90,7 +90,7 @@ func (r *IAMAccessKeyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 	if !permitted {
-		// Access to this user is not permitted for this user
+		// Access to this username is not permitted by any IAMProviderGrant
 		accessKeySecret := &corev1.Secret{}
 		err := r.Client.Get(ctx, client.ObjectKey{
 			Namespace: accessKey.Namespace,
