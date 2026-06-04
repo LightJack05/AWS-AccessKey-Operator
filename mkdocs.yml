@@ -1,0 +1,38 @@
+site_name: AWS AccessKey Operator
+site_description: A Kubernetes operator for managing AWS IAM access keys
+site_url: https://lightjack05.github.io/AWS-AccessKey-Operator
+repo_url: https://github.com/LightJack05/AWS-AccessKey-Operator
+repo_name: LightJack05/AWS-AccessKey-Operator
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: orange
+      accent: deep orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: orange
+      accent: deep orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - content.code.copy
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - API Reference:
+    - Overview: api/index.md
+    - IAMProviderConfig: api/iamproviderconfig.md
+    - IAMProviderGrant: api/iamprovidergrant.md
+    - IAMAccessKey: api/iamaccesskey.md
