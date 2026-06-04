@@ -1,0 +1,83 @@
+{{- if .Values.crd.enable }}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    {{- if .Values.crd.keep }}
+    "helm.sh/resource-policy": keep
+    {{- end }}
+    controller-gen.kubebuilder.io/version: v0.20.1
+  name: iamprovidergrants.aws-accesskey-operator.lightjack.de
+spec:
+  group: aws-accesskey-operator.lightjack.de
+  names:
+    kind: IAMProviderGrant
+    listKind: IAMProviderGrantList
+    plural: iamprovidergrants
+    singular: iamprovidergrant
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          IAMProviderGrant is the Schema for the iamprovidergrants API.
+          A cluster admin places an IAMProviderGrant in a namespace to allow
+          IAMAccessKey resources in that namespace to use the referenced
+          IAMProviderConfig and to restrict which IAM usernames they may request.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: spec defines the desired state of IAMProviderGrant
+            properties:
+              allowedUsernames:
+                description: |-
+                  allowedUsernames is the list of IAM usernames that may be requested via
+                  IAMAccessKey resources in this namespace for the referenced provider.
+                items:
+                  type: string
+                minItems: 1
+                type: array
+              providerConfigRef:
+                description: |-
+                  providerConfigRef references the IAMProviderConfig that IAMAccessKey resources
+                  in this namespace are permitted to use.
+                properties:
+                  name:
+                    description: name is the name of the IAMProviderConfig.
+                    minLength: 1
+                    type: string
+                  namespace:
+                    description: namespace is the namespace of the IAMProviderConfig.
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                - namespace
+                type: object
+            required:
+            - allowedUsernames
+            - providerConfigRef
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+{{- end }}

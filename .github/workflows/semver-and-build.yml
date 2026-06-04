@@ -74,7 +74,7 @@ jobs:
 
       - name: Package Helm chart
         run: |
-          helm package helm-chart \
+          helm package dist/chart \
             --version ${{ needs.semver.outputs.version }} \
             --app-version ${{ needs.semver.outputs.tag }}
 
