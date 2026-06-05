@@ -39,14 +39,6 @@ aws_access_key_id=AKIAIOSFODNN7EXAMPLE
 aws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
 ```
 
-## Status
-
-`IAMProviderConfig` exposes status conditions via the `.status.conditions` list.
-
-| Condition type | Meaning |
-|---|---|
-| `Ready` | The provider config is reachable and the admin credentials are valid |
-
 ## Reactive reconciliation
 
 Any change to the admin credentials Secret causes all `IAMAccessKey` resources that reference this `IAMProviderConfig` to be re-reconciled automatically.
