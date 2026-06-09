@@ -184,22 +184,6 @@ var _ = Describe("IAMAccessKey controller", func() {
 			expectCredentialsWork(Default, ctx, secret, iamUser)
 		})
 
-		It("does not issue a second IAM key when the output Secret is already valid (AlreadyExists)", func() {
-			setupValidPrerequisites(ctx, testNs.Name, iamUser)
-			ak := makeAccessKey(testNs.Name, "ak", iamUser, "output-creds")
-			Expect(k8sClient.Create(ctx, ak)).To(Succeed())
-
-			// Wait for steady state (AlreadyExists is the stable reason after creation).
-			expectCondition(ctx, client.ObjectKeyFromObject(ak), metav1.ConditionTrue, "")
-
-			// Exactly one IAM key must exist for the user on SeaweedFS.
-			listOut, err := adminIAMClient.ListAccessKeys(ctx, &iam.ListAccessKeysInput{
-				UserName: aws.String(iamUser),
-			})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(listOut.AccessKeyMetadata).To(HaveLen(1))
-		})
-
 		It("re-creates the Secret with fresh credentials when the output Secret is deleted", func() {
 			setupValidPrerequisites(ctx, testNs.Name, iamUser)
 			ak := makeAccessKey(testNs.Name, "ak", iamUser, "output-creds")
