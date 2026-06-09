@@ -2,6 +2,9 @@ name: Tests
 
 on: [pull_request]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -16,3 +19,6 @@ jobs:
 
       - name: Test
         run: nix develop --command make test
+
+      - name: Test E2E
+        run: nix develop --command make test-e2e

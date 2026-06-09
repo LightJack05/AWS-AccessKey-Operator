@@ -182,6 +182,9 @@ func (r *IAMAccessKeyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	return ctrl.Result{}, nil
 }
 
+// createAccessKeyAndStoreInSecret clears any existing IAM access keys for the
+// requested username, creates a new one, and stores the credentials as an
+// AWS credentials-file-formatted Kubernetes Secret owned by the IAMAccessKey.
 func (r *IAMAccessKeyReconciler) createAccessKeyAndStoreInSecret(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, providerConfig *awsaccesskeyoperatorv1alpha1.IAMProviderConfig) error {
 	adminConfig, err := r.getAdminConfig(ctx, providerConfig)
 	if err != nil {
@@ -228,6 +231,8 @@ func (r *IAMAccessKeyReconciler) createAccessKeyAndStoreInSecret(ctx context.Con
 	return nil
 }
 
+// clearAccessKeysForuser deletes all existing IAM access keys for the user
+// specified in accessKey.Spec.Username, making room for a fresh key.
 func (r *IAMAccessKeyReconciler) clearAccessKeysForuser(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, client *iam.Client) error {
 	// List existing access keys for the user
 	listOutput, err := client.ListAccessKeys(ctx, &iam.ListAccessKeysInput{
@@ -253,6 +258,9 @@ func (r *IAMAccessKeyReconciler) clearAccessKeysForuser(ctx context.Context, acc
 	return nil
 }
 
+// getAdminConfig loads an AWS SDK configuration for the admin credentials
+// referenced by providerConfig, reading them from the Kubernetes Secret named
+// in AdminCredentialsSecretRef.
 func (r *IAMAccessKeyReconciler) getAdminConfig(ctx context.Context, providerConfig *awsaccesskeyoperatorv1alpha1.IAMProviderConfig) (aws.Config, error) {
 	// get the admin secret from the provider config ref
 	secret := &corev1.Secret{}
@@ -346,6 +354,7 @@ func (r *IAMAccessKeyReconciler) accessKeySecretExistsAndHasValidKey(ctx context
 
 }
 
+// deleteSecret deletes the given Kubernetes Secret and logs the operation.
 func (r *IAMAccessKeyReconciler) deleteSecret(ctx context.Context, secret *corev1.Secret) error {
 	log := logf.FromContext(ctx)
 	log.Info(fmt.Sprintf("deleting stale secret %s/%s", secret.Namespace, secret.Name))
@@ -357,6 +366,9 @@ func (r *IAMAccessKeyReconciler) deleteSecret(ctx context.Context, secret *corev
 	return nil
 }
 
+// loadAWSConfigFromString parses an INI-formatted AWS credentials string and
+// returns an aws.Config configured with the extracted credentials along with
+// the region and endpoint from providerConfig.
 func loadAWSConfigFromString(ctx context.Context, configString string, providerConfig *awsaccesskeyoperatorv1alpha1.IAMProviderConfig) (aws.Config, error) {
 	iniData, err := ini.Load([]byte(configString))
 	if err != nil {
@@ -415,6 +427,8 @@ func (r *IAMAccessKeyReconciler) isPermittedByGrant(ctx context.Context, accessK
 	return false, nil
 }
 
+// setAccessKeyError sets the Ready condition on the IAMAccessKey status to
+// False with the given reason and message, then persists the status update.
 func (r *IAMAccessKeyReconciler) setAccessKeyError(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, reason, message string) error {
 	meta.SetStatusCondition(&accessKey.Status.Conditions, metav1.Condition{
 		Type:    awsaccesskeyoperatorv1alpha1.ConditionReady,
@@ -430,6 +444,8 @@ func (r *IAMAccessKeyReconciler) setAccessKeyError(ctx context.Context, accessKe
 	return nil
 }
 
+// setAccessKeyReady sets the Ready condition on the IAMAccessKey status to
+// True with the given reason and message, then persists the status update.
 func (r *IAMAccessKeyReconciler) setAccessKeyReady(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, reason, message string) error {
 	meta.SetStatusCondition(&accessKey.Status.Conditions, metav1.Condition{
 		Type:    awsaccesskeyoperatorv1alpha1.ConditionReady,
@@ -445,6 +461,9 @@ func (r *IAMAccessKeyReconciler) setAccessKeyReady(ctx context.Context, accessKe
 	return nil
 }
 
+// handleGrantDenied logs the denial and sets a GrantDenied error status on the
+// IAMAccessKey, indicating no IAMProviderGrant in this namespace permits the
+// requested provider/username combination.
 func (r *IAMAccessKeyReconciler) handleGrantDenied(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey) error {
 	log := logf.FromContext(ctx)
 	log.Info("no IAMProviderGrant permits this provider/username combination",
@@ -459,6 +478,8 @@ func (r *IAMAccessKeyReconciler) handleGrantDenied(ctx context.Context, accessKe
 	return nil
 }
 
+// isOwnedByAccessKey reports whether secret has an owner reference pointing
+// to the given IAMAccessKey resource.
 func isOwnedByAccessKey(secret *corev1.Secret, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey) bool {
 	for _, ref := range secret.GetOwnerReferences() {
 		if ref.Kind == "IAMAccessKey" &&
@@ -470,6 +491,9 @@ func isOwnedByAccessKey(secret *corev1.Secret, accessKey *awsaccesskeyoperatorv1
 	return false
 }
 
+// handleSecretConflict logs and records a SecretConflict status error when a
+// Secret with the target name already exists but is not owned by this
+// IAMAccessKey, requiring manual intervention to resolve.
 func (r *IAMAccessKeyReconciler) handleSecretConflict(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey) error {
 	log := logf.FromContext(ctx)
 	log.Error(
@@ -487,7 +511,8 @@ func (r *IAMAccessKeyReconciler) handleSecretConflict(ctx context.Context, acces
 	return nil
 }
 
-// Handle undesirable conditions
+// handleProviderConfigNotFound logs and records a ProviderConfigNotFound status
+// error when the IAMProviderConfig referenced by the IAMAccessKey cannot be found.
 func (r *IAMAccessKeyReconciler) handleProviderConfigNotFound(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey) error {
 	log := logf.FromContext(ctx)
 	log.Error(fmt.Errorf("provider config not found"), "Failed to get provider config", "namespace", accessKey.Spec.ProviderConfigRef.Namespace, "name", accessKey.Spec.ProviderConfigRef.Name)
@@ -499,6 +524,8 @@ func (r *IAMAccessKeyReconciler) handleProviderConfigNotFound(ctx context.Contex
 	return nil
 }
 
+// handleGeneralReconcileError logs the error and sets a ReconcileError condition
+// on the IAMAccessKey status so the failure is visible on the resource.
 func (r *IAMAccessKeyReconciler) handleGeneralReconcileError(ctx context.Context, accessKey *awsaccesskeyoperatorv1alpha1.IAMAccessKey, err error) error {
 	log := logf.FromContext(ctx)
 	log.Error(err, "Failed to reconcile IAMAccessKey", "namespace", accessKey.Namespace, "name", accessKey.Name)
