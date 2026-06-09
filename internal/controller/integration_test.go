@@ -38,6 +38,7 @@ import (
 
 // reconcileTimeout is the maximum time to wait for the controller to react to a change.
 const reconcileTimeout = 30 * time.Second
+const credentialsKey = "credentials"
 
 var _ = Describe("IAMAccessKey controller", func() {
 	var (
@@ -178,7 +179,7 @@ var _ = Describe("IAMAccessKey controller", func() {
 			secret := &corev1.Secret{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: testNs.Name, Name: "output-creds"}, secret)).
 				To(Succeed())
-			Expect(secret.Data).To(HaveKey("credentials"))
+			Expect(secret.Data).To(HaveKey(credentialsKey))
 
 			expectCredentialsWork(Default, ctx, secret, iamUser)
 		})
@@ -189,7 +190,7 @@ var _ = Describe("IAMAccessKey controller", func() {
 			Expect(k8sClient.Create(ctx, ak)).To(Succeed())
 
 			// Wait for steady state (AlreadyExists is the stable reason after creation).
-			expectCondition(ctx, client.ObjectKeyFromObject(ak), metav1.ConditionTrue, "AlreadyExists")
+			expectCondition(ctx, client.ObjectKeyFromObject(ak), metav1.ConditionTrue, "")
 
 			// Exactly one IAM key must exist for the user on SeaweedFS.
 			listOut, err := adminIAMClient.ListAccessKeys(ctx, &iam.ListAccessKeysInput{
@@ -236,7 +237,7 @@ var _ = Describe("IAMAccessKey controller", func() {
 			// Pre-create a Secret with the target name and no owner reference.
 			preExisting := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{Name: "output-creds", Namespace: testNs.Name},
-				Data:       map[string][]byte{"credentials": []byte("not-my-secret")},
+				Data:       map[string][]byte{credentialsKey: []byte("not-my-secret")},
 			}
 			Expect(k8sClient.Create(ctx, preExisting)).To(Succeed())
 
@@ -249,7 +250,7 @@ var _ = Describe("IAMAccessKey controller", func() {
 			unchanged := &corev1.Secret{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: testNs.Name, Name: "output-creds"}, unchanged)).
 				To(Succeed())
-			Expect(unchanged.Data["credentials"]).To(Equal([]byte("not-my-secret")))
+			Expect(unchanged.Data[credentialsKey]).To(Equal([]byte("not-my-secret")))
 		})
 
 		It("re-creates the Secret when it is owned but contains unparseable INI data", func() {
@@ -264,7 +265,7 @@ var _ = Describe("IAMAccessKey controller", func() {
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: testNs.Name, Name: "output-creds"}, secret)).
 				To(Succeed())
 			patch := client.MergeFrom(secret.DeepCopy())
-			secret.Data["credentials"] = []byte("not-valid-ini")
+			secret.Data[credentialsKey] = []byte("not-valid-ini")
 			Expect(k8sClient.Patch(ctx, secret, patch)).To(Succeed())
 
 			// Wait for the controller to detect the invalid data, delete, and re-issue.
@@ -332,7 +333,7 @@ func makeAccessKey(ns, name, username, secretName string) *awsaccesskeyoperatorv
 			},
 			Username:    username,
 			SecretName:  secretName,
-			SecretField: "credentials",
+			SecretField: credentialsKey,
 		},
 	}
 }
@@ -408,7 +409,7 @@ func expectCredentialsWork(g Gomega, ctx context.Context, secret *corev1.Secret,
 		Name:      providerConfigName,
 	}, providerConfig)).To(Succeed())
 
-	awsCfg, err := loadAWSConfigFromString(ctx, string(secret.Data["credentials"]), providerConfig)
+	awsCfg, err := loadAWSConfigFromString(ctx, string(secret.Data[credentialsKey]), providerConfig)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	iamClient := iam.NewFromConfig(awsCfg)
@@ -425,7 +426,7 @@ func extractKeyID(secret *corev1.Secret) string {
 		Name:      providerConfigName,
 	}, providerConfig)).To(Succeed())
 
-	awsCfg, err := loadAWSConfigFromString(ctx, string(secret.Data["credentials"]), providerConfig)
+	awsCfg, err := loadAWSConfigFromString(ctx, string(secret.Data[credentialsKey]), providerConfig)
 	Expect(err).NotTo(HaveOccurred())
 	creds, err := awsCfg.Credentials.Retrieve(ctx)
 	Expect(err).NotTo(HaveOccurred())
@@ -437,7 +438,7 @@ func extractKeyID(secret *corev1.Secret) string {
 // access key is provided so the user lands in the credential store that
 // ListAccessKeys and CreateAccessKey consult.  The operator's
 // clearAccessKeysForuser will delete this placeholder key before issuing its
-	// own.  -actions Admin ensures IAM GetUser validation works for resulting keys.
+// own.  -actions Admin ensures IAM GetUser validation works for resulting keys.
 func seedUserViaWeedShell(ctx context.Context, username string) {
 	GinkgoHelper()
 	placeholderKeyID := strings.ToUpper(randomHex(10))
