@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.19
 	github.com/onsi/ginkgo/v2 v2.29.0
-	github.com/onsi/gomega v1.40.0
+	github.com/onsi/gomega v1.41.0
 	gopkg.in/ini.v1 v1.67.2
 	k8s.io/apimachinery v0.36.1
 	k8s.io/client-go v0.36.1
