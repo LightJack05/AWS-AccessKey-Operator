@@ -27,6 +27,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/ini.v1"
 	corev1 "k8s.io/api/core/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -404,17 +405,14 @@ func expectCredentialsWork(g Gomega, ctx context.Context, secret *corev1.Secret,
 // extractKeyID parses the aws_access_key_id from a credentials Secret.
 func extractKeyID(secret *corev1.Secret) string {
 	GinkgoHelper()
-	providerConfig := &awsaccesskeyoperatorv1alpha1.IAMProviderConfig{}
-	Expect(k8sClient.Get(ctx, types.NamespacedName{
-		Namespace: providerNamespace,
-		Name:      providerConfigName,
-	}, providerConfig)).To(Succeed())
 
-	awsCfg, err := loadAWSConfigFromString(ctx, string(secret.Data[credentialsKey]), providerConfig)
+	iniData, err := ini.Load(secret.Data[credentialsKey])
 	Expect(err).NotTo(HaveOccurred())
-	creds, err := awsCfg.Credentials.Retrieve(ctx)
+	section, err := iniData.GetSection("default")
 	Expect(err).NotTo(HaveOccurred())
-	return creds.AccessKeyID
+	accessKeyID := section.Key("aws_access_key_id").String()
+	Expect(accessKeyID).NotTo(BeEmpty())
+	return accessKeyID
 }
 
 // seedUserViaWeedShell creates a test IAM user in SeaweedFS using the same
