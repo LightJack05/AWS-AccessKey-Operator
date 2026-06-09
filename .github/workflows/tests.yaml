@@ -16,3 +16,6 @@ jobs:
 
       - name: Test
         run: nix develop --command make test
+
+      - name: Test E2E
+        run: nix develop --command make test-e2e
