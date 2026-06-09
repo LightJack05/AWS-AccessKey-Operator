@@ -437,7 +437,7 @@ func extractKeyID(secret *corev1.Secret) string {
 // access key is provided so the user lands in the credential store that
 // ListAccessKeys and CreateAccessKey consult.  The operator's
 // clearAccessKeysForuser will delete this placeholder key before issuing its
-// own.  -actions Admin ensures STS GetCallerIdentity works for resulting keys.
+	// own.  -actions Admin ensures IAM GetUser validation works for resulting keys.
 func seedUserViaWeedShell(ctx context.Context, username string) {
 	GinkgoHelper()
 	placeholderKeyID := strings.ToUpper(randomHex(10))

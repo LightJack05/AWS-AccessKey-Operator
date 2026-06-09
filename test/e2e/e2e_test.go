@@ -190,8 +190,6 @@ spec:
 		}, 2*time.Minute, 5*time.Second).Should(Succeed())
 
 		By("creating admin credentials Secret in operator namespace")
-		adminCreds := fmt.Sprintf("[default]\naws_access_key_id = %s\naws_secret_access_key = %s\n",
-			seaweedfsAdminKeyID, seaweedfsAdminSecret)
 		adminSecretYAML := fmt.Sprintf(`apiVersion: v1
 kind: Secret
 metadata:
@@ -203,7 +201,6 @@ stringData:
     aws_access_key_id = %s
     aws_secret_access_key = %s
 `, namespace, seaweedfsAdminKeyID, seaweedfsAdminSecret)
-		_ = adminCreds
 		applyCmd = exec.Command("kubectl", "apply", "-f", "-")
 		applyCmd.Stdin = strings.NewReader(adminSecretYAML)
 		_, err = utils.Run(applyCmd)
