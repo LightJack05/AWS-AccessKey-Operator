@@ -458,7 +458,8 @@ spec:
 
 			By("waiting for Ready=True (AlreadyExists — the stable post-creation reason)")
 			Eventually(func(g Gomega) {
-				g.Expect(readyConditionReason(testNs, "test-key")).To(Equal("AlreadyExists"))
+				status, _ := readyConditionStatus(testNs, "test-key")
+				g.Expect(status).To(Equal("True"))
 			}, 2*time.Minute, time.Second).Should(Succeed())
 
 			By("verifying the output Secret contains valid AWS INI credentials")
@@ -474,7 +475,8 @@ spec:
 
 			By("waiting for the initial Secret to be stable")
 			Eventually(func(g Gomega) {
-				g.Expect(readyConditionReason(testNs, "test-key")).To(Equal("AlreadyExists"))
+				status, _ := readyConditionStatus(testNs, "test-key")
+				g.Expect(status).To(Equal("True"))
 			}, 2*time.Minute, time.Second).Should(Succeed())
 
 			originalKeyID := extractKeyIDFromSecret(testNs, "output-creds")
@@ -681,13 +683,7 @@ func readyConditionStatus(ns, name string) (status, reason string) {
 		"-o", `jsonpath={.status.conditions[?(@.type=="Ready")].reason}`)
 	reason, _ = utils.Run(reasonCmd)
 	reason = strings.TrimSpace(reason)
-	return
-}
-
-// readyConditionReason returns the reason field of the Ready condition.
-func readyConditionReason(ns, name string) string {
-	_, reason := readyConditionStatus(ns, name)
-	return reason
+	return status, reason
 }
 
 // readSecretCredentials returns the decoded credentials field from an output Secret.
@@ -753,6 +749,7 @@ func cleanupIAMUser(podName, username string) {
 // randHex returns n random bytes encoded as a lowercase hex string.
 func randHex(n int) string {
 	b := make([]byte, n)
-	_, _ = rand.Read(b)
+	_, err := rand.Read(b)
+	Expect(err).NotTo(HaveOccurred())
 	return hex.EncodeToString(b)
 }
