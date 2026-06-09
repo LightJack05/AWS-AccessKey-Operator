@@ -51,7 +51,15 @@ var _ = Describe("IAMAccessKey Controller", func() {
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					// TODO(user): Specify other spec details if needed.
+					Spec: awsaccesskeyoperatorv1alpha1.IAMAccessKeySpec{
+						ProviderConfigRef: awsaccesskeyoperatorv1alpha1.IAMProviderConfigRef{
+							Name:      "placeholder",
+							Namespace: "default",
+						},
+						Username:    "placeholder",
+						SecretName:  "placeholder",
+						SecretField: "credentials",
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}
