@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+         <loc>https://lightjack05.github.io/AWS-AccessKey-Operator/</loc>
+         <lastmod>2026-06-09</lastmod>
+    </url>
+    <url>
+         <loc>https://lightjack05.github.io/AWS-AccessKey-Operator/installation/</loc>
+         <lastmod>2026-06-09</lastmod>
+    </url>
+    <url>
+         <loc>https://lightjack05.github.io/AWS-AccessKey-Operator/api/</loc>
+         <lastmod>2026-06-09</lastmod>
+    </url>
+    <url>
+         <loc>https://lightjack05.github.io/AWS-AccessKey-Operator/api/iamaccesskey/</loc>
+         <lastmod>2026-06-09</lastmod>
+    </url>
+    <url>
+         <loc>https://lightjack05.github.io/AWS-AccessKey-Operator/api/iamproviderconfig/</loc>
+         <lastmod>2026-06-09</lastmod>
+    </url>
+    <url>
+         <loc>https://lightjack05.github.io/AWS-AccessKey-Operator/api/iamprovidergrant/</loc>
+         <lastmod>2026-06-09</lastmod>
+    </url>
+</urlset>
